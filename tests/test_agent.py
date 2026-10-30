@@ -41,13 +41,15 @@ def test_ui_cannot_approve_blocked_apps():
     assert [e.app_id for e in out.frozen] == ["slack.exe"]
 
 
-def test_untick_becomes_session_rule_and_sticks():
+def test_untick_is_reported_and_only_a_confirmed_rule_sticks():
     sensor = MockSensor("thesis")
     client = FakeClient(freezing(sensor, {"zotero.exe", "steam.exe"}), freezing(sensor, {"zotero.exe", "steam.exe"}, 1))
     agent, actuator, seen, _ = make_agent("thesis", client, approve=lambda ids: [i for i in ids if i != "zotero.exe"])
     out = agent.focus("writing my thesis", "thesis")
-    assert [e.app_id for e in out.frozen] == ["steam.exe"]
-    assert sessions.get("thesis").keep_rules == ["zotero.exe"]
+    assert [e.app_id for e in out.frozen] == ["steam.exe"] and out.unticked == ["zotero.exe"]
+    assert sessions.get("thesis").keep_rules == []  # the agent never writes rules itself
+    # D asks "Never freeze Zotero during thesis?" and the user says yes:
+    sessions.add_rule("thesis", "zotero.exe", "keep")
     agent.done()
     out2 = agent.focus("writing my thesis", "thesis")
     assert "zotero.exe" not in [d.app_id for d in seen[1].to_freeze]
@@ -111,15 +113,42 @@ def test_auto_freeze_over_the_limit_asks_first(monkeypatch):
 
 def test_focus_never_refreezes_a_frozen_app():
     sensor = MockSensor("login_bug")
-    live = [s for s in sensor.snapshot() if s.app_id != "steam.exe"]
-    client = FakeClient(freezing(sensor, {"steam.exe"}),
-                        reply(call("freeze_apps", all_decisions(live, {"discord.exe"}), 1)))
+    client = FakeClient(freezing(sensor, {"steam.exe"}), freezing(sensor, {"steam.exe", "discord.exe"}, 1))
     agent, actuator, seen, _ = make_agent("login_bug", client)
     agent.focus("fixing the login bug")
     out = agent.focus("reviewing a PR")  # task switch without "I'm done"
-    assert "steam.exe" not in client.requests[1]["messages"][1]["content"]  # planner never saw it
-    assert [e.app_id for e in out.frozen] == ["discord.exe"]
+    assert [e.app_id for e in out.frozen] == ["discord.exe"] and out.thawed == []
     assert actuator.log.count(("freeze", "steam.exe")) == 1
+    assert "steam.exe" not in [d.app_id for d in seen[1].to_freeze + seen[1].keep]
+
+
+def test_task_switch_thaws_a_frozen_app_the_new_task_needs():
+    sensor = MockSensor("login_bug")
+    client = FakeClient(freezing(sensor, {"steam.exe", "discord.exe"}), freezing(sensor, {"steam.exe"}, 1))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    agent.focus("fixing the login bug")
+    out = agent.focus("quick call with the team on Discord")  # model now keeps discord
+    assert out.thawed == ["discord.exe"] and [e.app_id for e in actuator.frozen()] == ["steam.exe"]
+
+
+def test_heuristic_or_skipped_keep_never_thaws():
+    sensor = MockSensor("login_bug")
+    snaps = sensor.snapshot()
+    skip_discord = {"decisions": [d for d in all_decisions(snaps, {"steam.exe"})["decisions"]
+                                  if d["app_id"] != "discord.exe"]}
+    client = FakeClient(freezing(sensor, {"steam.exe", "discord.exe"}),
+                        reply(call("freeze_apps", skip_discord, 1)), RuntimeError("down"))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    agent.focus("fixing the login bug")
+    assert agent.focus("reviewing a PR").thawed == []    # model skipped discord: stays frozen
+    assert agent.focus("reviewing a PR").thawed == []    # API down -> heuristic: thaws nothing
+    assert sorted(e.app_id for e in actuator.frozen()) == ["discord.exe", "steam.exe"]
+
+
+def test_guardian_skip_says_why():
+    agent, actuator, seen, _ = make_agent("login_bug", FakeClient())
+    out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe"]))
+    assert out.proposal is None and "idle" in out.note
 
 
 def test_one_failed_freeze_does_not_stop_the_rest():

@@ -8,4 +8,5 @@ def isolated_home(tmp_path, monkeypatch):
     monkeypatch.delenv("FF_COST_CAP_USD", raising=False)
     from freezer import cost
     monkeypatch.setattr(cost, "_log_failed", False)
+    monkeypatch.setattr(cost, "_pending", [])
     return tmp_path / "ff"

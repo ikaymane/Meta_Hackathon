@@ -115,6 +115,11 @@ class _RememberRuleArgs(BaseModel):
     reason: str = ""
 
 
+# Reason on apps the model gave no decision for (they are kept). The agent must not read
+# such a "keep" as "the new task needs this frozen app back".
+SKIPPED_REASON = "No decision from planner, kept to be safe"
+
+
 class PlanRejected(ValueError):
     """Model answer failed validation; the message goes back to the model."""
 
@@ -181,8 +186,7 @@ def _validate_decisions(raw: list[_DecisionArgs], snapshots: list[AppSnapshot]) 
             raise PlanRejected(f"duplicate decision for {d.app_id}. Give exactly one decision per app.")
         seen[d.app_id] = Decision(d.app_id, d.action, _clean_reason(d.reason))
     # Apps the model skipped are kept: never freeze something nobody decided on.
-    return [seen.get(s.app_id) or Decision(s.app_id, "keep", "No decision from planner, kept to be safe")
-            for s in snapshots]
+    return [seen.get(s.app_id) or Decision(s.app_id, "keep", SKIPPED_REASON) for s in snapshots]
 
 
 def _apply_session_rules(decisions: list[Decision], session: FocusSession | None) -> list[Decision]:

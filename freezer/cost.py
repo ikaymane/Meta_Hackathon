@@ -5,7 +5,10 @@ reaches the cap (default $20, env FF_COST_CAP_USD) the planner stops calling the
 API and uses the heuristic instead.
 
 Fails closed: if the log can't be written, usage_log_ok() turns False and the
-planner stops calling the API, because spend it can't count it can't cap.
+planner stops calling the API, because spend it can't count it can't cap. The
+unwritten entries wait in memory (and count toward the cap), and every check
+retries them, so a passing file lock (antivirus, OneDrive) doesn't disable the AI
+for good.
 """
 from __future__ import annotations
 
@@ -29,6 +32,7 @@ DEFAULT_CAP_USD = 20.0
 
 _lock = threading.Lock()  # eval runs planner calls in a thread pool; keep log lines whole
 _log_failed = False
+_pending: list[dict] = []  # entries a failed write left behind
 
 
 def home() -> Path:
@@ -66,25 +70,47 @@ def record(model: str, prompt_tokens: int, completion_tokens: int, cached_tokens
     entry = {"ts": time.time(), "model": model, "prompt_tokens": prompt_tokens,
              "cached_tokens": cached_tokens, "completion_tokens": completion_tokens,
              "cost_usd": round(cost, 8), "latency_s": round(latency_s, 3)}
-    try:
-        path = usage_path()
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with _lock, path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-    except OSError:
-        log.exception("can't write the usage log; API calls stop until restart")
-        _log_failed = True
+    with _lock:
+        _pending.append(entry)
+        _log_failed = not _flush()
+    if _log_failed:
+        log.error("can't write the usage log; API calls pause until it can be written")
     return cost
 
 
+def _flush() -> bool:
+    """Write every pending entry; True when none are left. Caller holds _lock."""
+    if not _pending:
+        return True
+    try:
+        path = usage_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as f:
+            f.write("".join(json.dumps(e) + "\n" for e in _pending))
+    except OSError:
+        return False
+    _pending.clear()
+    return True
+
+
 def usage_log_ok() -> bool:
+    """False while logged spend is behind; each call retries the write."""
+    global _log_failed
+    if _log_failed:
+        with _lock:
+            _log_failed = not _flush()
     return not _log_failed
+
+
+def _pending_usd() -> float:
+    with _lock:
+        return sum(e["cost_usd"] for e in _pending)
 
 
 def total_spent() -> float:
     path = usage_path()
     if not path.exists():
-        return 0.0
+        return _pending_usd()
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
@@ -98,7 +124,7 @@ def total_spent() -> float:
             torn += 1  # a torn line must not crash the agent
     if torn:
         log.warning("%d unreadable lines in %s; spend may be undercounted", torn, path)
-    return total
+    return total + _pending_usd()
 
 
 def over_cap() -> bool:

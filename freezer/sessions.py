@@ -7,6 +7,7 @@ RuleProposal, which the UI shows and confirm_proposal() saves on a click.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -34,17 +35,18 @@ def path() -> Path:
 
 # Name and rules sit in the trusted part of the prompt, so they must not be able to
 # carry quotes, brackets or sentences (red-team keep-06 / keep-07).
-_NAME_RE = re.compile(r"[\w '.-]{1,60}")
+_NAME_BAD = re.compile(r"[^\w '.-]+")
+MAX_NAME_LEN = 60
 # A legal Windows file name ending in .exe: no \ / : * ? " < > | or control characters.
 _APP_ID_RE = re.compile(r'[^\\/:*?"<>|\x00-\x1f]{1,%d}\.exe' % (MAX_ID_LEN - 4), re.IGNORECASE)
 
 
 def _norm(name: str) -> str:
-    name = " ".join(name.split()).lower()
+    """Slug for a spoken or typed name: "C++ Project" -> "c project", "bug #2" -> "bug 2".
+    Never raises for a usable name, so a voice command can't crash the agent."""
+    name = " ".join(_NAME_BAD.sub(" ", name).split()).lower()[:MAX_NAME_LEN].strip()
     if not name:
         raise ValueError("session name is empty")
-    if not _NAME_RE.fullmatch(name):
-        raise ValueError(f"session name may use letters, digits, spaces and ' . - only: {name!r}")
     return name
 
 
@@ -61,8 +63,7 @@ def _parse(s: object) -> FocusSession:
     session = FocusSession(**{k: v for k, v in s.items() if k in _FIELDS})
     if not isinstance(session.name, str) or not isinstance(session.task, str):
         raise TypeError("name and task must be strings")
-    if _norm(session.name) != session.name:  # hand-edited file: same rules as a spoken name
-        raise ValueError(f"bad session name: {session.name!r}")
+    session.name = _norm(session.name)  # hand-edited file: same slug as a spoken name
     # The file is user-writable, and rule app_ids go into the prompt: validate them.
     for rules in (session.keep_rules, session.never_freeze):
         if not isinstance(rules, list):
@@ -75,10 +76,15 @@ def _parse(s: object) -> FocusSession:
     return session
 
 
+def _backup_name(p: Path, content: bytes) -> Path:
+    # Named by content, so get() on every guardian event doesn't pile up copies.
+    return p.with_name(f"sessions.bad-{hashlib.sha256(content).hexdigest()[:10]}.json")
+
+
 def _backup(p: Path) -> None:
-    bad = p.with_name(f"sessions.bad-{int(time.time())}.json")
     try:
-        p.replace(bad)
+        bad = _backup_name(p, p.read_bytes())
+        p.replace(bad)  # replace() overwrites an identical earlier backup
         log.error("sessions file was unreadable; moved it to %s", bad)
     except OSError:
         log.exception("sessions file was unreadable and could not be moved aside")
@@ -106,8 +112,10 @@ def load() -> list[FocusSession]:
     if len(out) < len(raw):
         # Keep a copy of the original before the next save overwrites it.
         try:
-            p.with_name(f"sessions.bad-{int(time.time())}.json").write_text(
-                json.dumps(raw, indent=1), encoding="utf-8")
+            content = json.dumps(raw, indent=1).encode("utf-8")
+            bad = _backup_name(p, content)
+            if not bad.exists():
+                bad.write_bytes(content)
         except OSError:
             log.exception("could not back up the sessions file")
     return out

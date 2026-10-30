@@ -11,7 +11,10 @@ Invariants:
 - Nothing is frozen without consent, unless the user turned on auto_freeze
   for the active session and the trigger is the pressure guardian. Even then,
   at most MAX_AUTO_FREEZE apps per event; the rest still go to the card.
-- Session rules are written here only from what the user did on the card.
+- Session rules are never written here. Outcome.unticked goes back to the UI, which
+  asks "Never freeze this during <session>?" and calls sessions.add_rule on yes.
+- A task switch can thaw a frozen app, but only when the model explicitly keeps it
+  for the new task; a heuristic plan never thaws anything.
 """
 from __future__ import annotations
 
@@ -22,7 +25,7 @@ from typing import Any, Callable, Literal, Protocol
 from freezer import sessions
 from freezer.contracts import (Actuator, AppSnapshot, Blocked, Decision, FocusSession,
                                LedgerEntry, Plan, PolicyResult, PressureEvent)
-from freezer.planner import DEFAULT_EFFORT, DEFAULT_MODEL, plan
+from freezer.planner import DEFAULT_EFFORT, DEFAULT_MODEL, SKIPPED_REASON, plan
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +56,7 @@ class Proposal:
     disconnects: list[str]          # app_ids with network that will drop
     source: Literal["user", "guardian"] = "user"
     session: str | None = None
+    thaw: list[Decision] = field(default_factory=list)  # frozen apps the new task needs back
 
     @property
     def fallback_reason(self) -> str | None:
@@ -65,8 +69,11 @@ class Outcome:
     proposal: Proposal | None = None
     frozen: list[LedgerEntry] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)  # approved, but the actuator raised
+    unticked: list[str] = field(default_factory=list)  # on the card but left out: UI may offer a rule
+    thawed: list[str] = field(default_factory=list)
     question: str | None = None
     declined: bool = False
+    note: str | None = None          # why nothing happened, when it wasn't a failure
 
 
 # Returns the app_ids the user approved (untick = leave out), or None to cancel.
@@ -85,19 +92,22 @@ class FocusAgent:
 
     def propose(self, task: str, snaps: list[AppSnapshot], session: FocusSession | None,
                 source: Literal["user", "guardian"] = "user",
-                candidates: list[str] | None = None) -> Proposal:
+                candidates: list[str] | None = None, frozen: set[str] | frozenset = frozenset()) -> Proposal:
+        """frozen = app_ids already in the ledger: shown to the planner, never frozen twice."""
         p = plan(task, snaps, session, model=self.model, reasoning_effort=self.effort, client=self.client,
                  on_fallback=self.on_fallback)
-        wanted = [d for d in p.decisions if d.action == "freeze"
+        wanted = [d for d in p.decisions if d.action == "freeze" and d.app_id not in frozen
                   and (candidates is None or d.app_id in candidates)]
         verdict = self.policy([d.app_id for d in wanted], snaps)
         by_id = {s.app_id: s for s in snaps}
         allowed = {a for a in verdict.allowed if a in by_id}
         blocked = {b.app_id for b in verdict.blocked}
         to_freeze = [d for d in wanted if d.app_id in allowed]
+        thaw = [d for d in p.decisions if d.app_id in frozen and d.action == "keep"
+                and p.model != "heuristic" and d.reason != SKIPPED_REASON]
         keep = []
         for d in p.decisions:
-            if d.app_id in allowed or d.app_id in blocked:
+            if d.app_id in allowed or d.app_id in blocked or d.app_id in frozen:
                 continue
             if d.action == "freeze":  # outside the guardian's candidates, or policy was silent
                 outside = candidates is not None and d.app_id not in candidates
@@ -113,15 +123,12 @@ class FocusAgent:
             disconnects=[d.app_id for d in to_freeze if by_id[d.app_id].has_network],
             source=source,
             session=session.name if session else None,
+            thaw=thaw,
         )
 
     def _execute(self, proposal: Proposal, snaps: list[AppSnapshot], approved: list[str]) -> Outcome:
         allowed = [d.app_id for d in proposal.to_freeze]
         approved_set = set(approved) & set(allowed)  # the UI cannot add apps policy refused
-        if proposal.session and proposal.source == "user":
-            for app_id in allowed:
-                if app_id not in approved_set:  # user unticked it: remember for next time
-                    sessions.add_rule(proposal.session, app_id, "keep")
         by_id = {s.app_id: s for s in snaps}
         frozen, failed = [], []
         for a in allowed:
@@ -132,7 +139,18 @@ class FocusAgent:
             except Exception:
                 log.exception("freeze failed for %s", a)
                 failed.append(a)
-        return Outcome(proposal=proposal, frozen=frozen, failed=failed)
+        return Outcome(proposal=proposal, frozen=frozen, failed=failed,
+                       unticked=[a for a in allowed if a not in approved_set])
+
+    def _thaw(self, decisions: list[Decision]) -> list[str]:
+        thawed = []
+        for d in decisions:
+            try:
+                self.actuator.thaw(d.app_id)
+                thawed.append(d.app_id)
+            except Exception:
+                log.exception("thaw failed for %s", d.app_id)
+        return thawed
 
     def _live(self, snaps: list[AppSnapshot]) -> list[AppSnapshot]:
         """Snapshot minus apps already in the ledger: never re-freeze a frozen app."""
@@ -145,16 +163,20 @@ class FocusAgent:
         """User: "I'm fixing the login bug" or "start thesis session"."""
         session = sessions.start(session_name, task) if session_name else None
         self.session_name = session.name if session else None
-        snaps = self._live(self.sensor.snapshot())
-        proposal = self.propose(session.task if session else task, snaps, session)
+        snaps = self.sensor.snapshot()
+        frozen = {e.app_id for e in self.actuator.frozen()}
+        proposal = self.propose(session.task if session else task, snaps, session, frozen=frozen)
         if proposal.plan.question:
             return Outcome(proposal=proposal, question=proposal.plan.question)
+        thawed = self._thaw(proposal.thaw)  # bringing an app back needs no consent
         if not proposal.to_freeze:
-            return Outcome(proposal=proposal)
+            return Outcome(proposal=proposal, thawed=thawed)
         approved = self.consent(proposal)
         if approved is None:
-            return Outcome(proposal=proposal, declined=True)
-        return self._execute(proposal, snaps, approved)
+            return Outcome(proposal=proposal, declined=True, thawed=thawed)
+        out = self._execute(proposal, snaps, approved)
+        out.thawed = thawed
+        return out
 
     def on_pressure(self, event: PressureEvent) -> Outcome:
         """Guardian (A): RAM stayed high. Planner ranks the guardian's candidates."""
@@ -165,7 +187,8 @@ class FocusAgent:
         if dropped := [c for c in event.candidates if c not in idle]:
             log.info("guardian skipped recently used or unknown apps: %s", dropped)
         if not candidates:
-            return Outcome()  # nothing old enough to freeze: no planner call, no card
+            # No planner call, no card. Demo tip: open the distractions 5+ min beforehand.
+            return Outcome(note=f"guardian skipped: no candidate idle for {GUARDIAN_MIN_IDLE_S // 60}+ min")
         task = session.task if session else GUARDIAN_TASK
         proposal = self.propose(task, live, session, source="guardian", candidates=candidates)
         if not proposal.to_freeze or proposal.plan.question:

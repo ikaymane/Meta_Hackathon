@@ -73,3 +73,15 @@ def test_unwritable_log_fails_closed(monkeypatch, isolated_home):
     assert not cost.usage_log_ok()
     p = planner.plan(task, snaps, client=client)      # ...so the next one never reaches the API
     assert p.model == "heuristic" and "usage log" in p.fallback_reason and len(client.requests) == 1
+
+
+def test_log_recovers_after_a_passing_lock(monkeypatch, isolated_home):
+    isolated_home.mkdir(parents=True)
+    blocker = isolated_home / "blocker"
+    blocker.write_text("")  # a file where the log's folder should be: writes fail
+    monkeypatch.setattr(cost, "usage_path", lambda: blocker / "usage.jsonl")
+    spent = cost.record("muse-spark-1.3", 1000, 100, 0, 1.0)
+    assert not cost.usage_log_ok() and cost.total_spent() == pytest.approx(spent)  # still counted
+    blocker.unlink()  # the lock goes away
+    assert cost.usage_log_ok()
+    assert len((blocker / "usage.jsonl").read_text().splitlines()) == 1 and cost._pending == []
