@@ -1,20 +1,20 @@
 {
- "ts": 1793367926.7481751,
+ "ts": 1793374611.2735453,
  "summary": {
   "model": "muse-spark-1.3",
   "reasoning_effort": "minimal",
   "scenarios": 36,
-  "accuracy": 1.0,
-  "accuracy_model_only": 1.0,
+  "accuracy": 0.994,
+  "accuracy_model_only": 0.994,
   "timer_accuracy": 0.518,
   "timer_wrong_fixed": 58,
-  "perfect_scenarios": 36,
+  "perfect_scenarios": 35,
   "fallbacks": 0,
   "injection_rules_proposed": 0,
-  "latency_avg_s": 2.5,
-  "latency_max_s": 4.49,
-  "cost_per_call_usd": 0.002248,
-  "cost_total_usd": 0.080928
+  "latency_avg_s": 2.68,
+  "latency_max_s": 4.4,
+  "cost_per_call_usd": 0.002574,
+  "cost_total_usd": 0.092678
  },
  "results": [
   {
@@ -27,17 +27,17 @@
    "total": 6,
    "timer_correct": 5,
    "mistakes": [],
-   "latency_s": 3.28,
-   "cost_usd": 0.0023076,
+   "latency_s": 3.51,
+   "cost_usd": 0.00184295,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   code.exe                   Main editor for fixing login bug",
-    "keep   chrome.exe                 Shows login page and fix research",
-    "keep   windowsterminal.exe        Runs dev server for testing",
-    "freeze discord.exe                Gaming chat unrelated, will disconnect when frozen",
-    "freeze steam.exe                  Game launcher unrelated to bug fix",
-    "keep   spotify.exe                Playing audio, must stay on"
+    "keep   chrome.exe                 Shows login page and bug research",
+    "keep   windowsterminal.exe        Runs dev server for testing fix",
+    "freeze discord.exe                Chat unrelated to bug; will disconnect",
+    "freeze steam.exe                  Game launcher frees lots of RAM",
+    "keep   spotify.exe                Playing audio must stay running"
    ],
    "question": null
   },
@@ -51,17 +51,17 @@
    "total": 6,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 3.56,
-   "cost_usd": 0.0023598499999999997,
+   "latency_s": 4.29,
+   "cost_usd": 0.0023048499999999998,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   winword.exe                Main thesis document, currently in foreground",
-    "keep   acrord32.exe               Reference PDF for urban heat island thesis",
-    "keep   zotero.exe                 Reference library supports thesis writing",
-    "keep   msedge.exe                 Research tabs support thesis work",
-    "freeze ms-teams.exe               Unrelated chat, will disconnect when frozen",
-    "freeze steam.exe                  Game launcher unrelated, will disconnect"
+    "keep   winword.exe                Thesis draft, current foreground work",
+    "keep   acrord32.exe               Reference paper for thesis writing",
+    "keep   zotero.exe                 Reference library supports thesis citations",
+    "keep   msedge.exe                 Scholar research supports thesis writing",
+    "freeze ms-teams.exe               Work chat unrelated, will disconnect",
+    "freeze steam.exe                  Game launcher unrelated to thesis"
    ],
    "question": null
   },
@@ -75,16 +75,16 @@
    "total": 4,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 3.27,
-   "cost_usd": 0.0021841,
+   "latency_s": 3.41,
+   "cost_usd": 0.00226935,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   powerpnt.exe               Main slides app for review, currently in use",
+    "keep   powerpnt.exe               Main slides app for this review",
     "keep   firefox.exe                Sprint board research helps build slides",
     "keep   explorer.exe               Windows system component must stay running",
-    "freeze slack.exe                  Unrelated chat, will disconnect when frozen",
-    "freeze epicgameslauncher.exe      Game launcher unrelated to slides"
+    "freeze slack.exe                  Unrelated chat will disconnect when frozen",
+    "freeze epicgameslauncher.exe      Game launcher unrelated to slides work"
    ],
    "question": null
   },
@@ -98,16 +98,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 3.37,
-   "cost_usd": 0.0019161,
+   "latency_s": 3.42,
+   "cost_usd": 0.00195035,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   adobe premiere pro.exe     Main video editor for this vlog task",
-    "keep   chrome.exe                 Background music research helps vlog editing",
-    "freeze discord.exe                Unrelated chat, will disconnect when frozen",
-    "freeze outlook.exe                Email not needed for editing",
-    "freeze steam.exe                  Game launcher unrelated, frees most RAM"
+    "keep   adobe premiere pro.exe     Main video editor for vlog",
+    "keep   chrome.exe                 Researching background music for vlog",
+    "freeze discord.exe                Chat unrelated to editing, will disconnect",
+    "freeze outlook.exe                Email unrelated to vlog editing",
+    "freeze steam.exe                  Game launcher unrelated to editing"
    ],
    "question": null
   },
@@ -121,16 +121,16 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 3.33,
-   "cost_usd": 0.00375625,
+   "latency_s": 3.55,
+   "cost_usd": 0.00370125,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   chrome.exe                 Foreground browser showing tax instructions needed now",
-    "keep   excel.exe                  Budget spreadsheet likely holds figures for taxes",
-    "keep   acrobat.exe                W-2 document needed for tax filing",
-    "freeze whatsapp.exe               Chat unrelated to taxes; will disconnect when frozen",
-    "freeze epicgameslauncher.exe      Game launcher unrelated to taxes; frees RAM"
+    "keep   chrome.exe                 Foreground and shows tax instructions needed now",
+    "keep   excel.exe                  Budget spreadsheet helps with tax numbers",
+    "keep   acrobat.exe                W-2 tax document needed for filing",
+    "freeze whatsapp.exe               Chat unrelated to taxes, will disconnect",
+    "freeze epicgameslauncher.exe      Game launcher unrelated, frees lots RAM"
    ],
    "question": null
   },
@@ -144,15 +144,15 @@
    "total": 6,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.86,
-   "cost_usd": 0.0022521999999999998,
+   "latency_s": 3.68,
+   "cost_usd": 0.004816,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   eldenring.exe              Current game, foreground with audio",
-    "keep   steam.exe                  Game launcher supporting Elden Ring",
-    "keep   discord.exe                Playing audio, keep per rule",
-    "freeze code.exe                   Coding work unrelated to gaming",
+    "keep   eldenring.exe              Current game, foreground and playing audio",
+    "keep   steam.exe                  Supports Elden Ring launch and play",
+    "keep   discord.exe                Playing audio, must stay running",
+    "freeze code.exe                   Coding work unrelated to tonight's game",
     "freeze chrome.exe                 Work browsing unrelated, will disconnect",
     "freeze outlook.exe                Email unrelated to gaming, will disconnect"
    ],
@@ -168,16 +168,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.94,
-   "cost_usd": 0.00408025,
+   "latency_s": 2.47,
+   "cost_usd": 0.00415275,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   chrome.exe                 Main Jupyter notebook for churn training",
-    "keep   windowsterminal.exe        Runs Jupyter Lab server session",
-    "keep   docker desktop.exe         Postgres container likely holds churn data",
-    "freeze slack.exe                  Work chat unrelated; will disconnect when frozen",
-    "freeze photoshop.exe              Image editing unrelated to model training"
+    "keep   chrome.exe                 Foreground Jupyter notebook for churn model training",
+    "keep   windowsterminal.exe        Terminal running Jupyter Lab session",
+    "keep   docker desktop.exe         Holds postgres-churn database for training",
+    "freeze slack.exe                  Work chat unrelated, will disconnect when frozen",
+    "freeze photoshop.exe              Large unrelated poster editing app"
    ],
    "question": null
   },
@@ -191,12 +191,12 @@
    "total": 1,
    "timer_correct": 0,
    "mistakes": [],
-   "latency_s": 1.51,
-   "cost_usd": 0.00098685,
+   "latency_s": 1.88,
+   "cost_usd": 0.00106785,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [],
-   "question": "What task should I keep apps for?"
+   "question": "What task do you want to focus on?"
   },
   {
    "name": "spanish",
@@ -208,16 +208,16 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 3.01,
-   "cost_usd": 0.0026006,
+   "latency_s": 2.32,
+   "cost_usd": 0.0019251,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   anki.exe                   Foreground flashcards app for Spanish vocabulary study",
+    "keep   anki.exe                   Core flashcards for Spanish vocabulary study",
     "keep   msedge.exe                 Dictionary reference helps Spanish vocabulary study",
-    "freeze netflix.exe                Unrelated entertainment, will disconnect streaming",
-    "freeze discord.exe                Unrelated chat, will disconnect if frozen",
-    "freeze steam.exe                  Unrelated game launcher, frees large memory"
+    "freeze netflix.exe                Entertainment unrelated to studying, will disconnect",
+    "freeze discord.exe                Chat unrelated to studying, will disconnect",
+    "freeze steam.exe                  Game launcher unrelated to studying"
    ],
    "question": null
   },
@@ -231,15 +231,15 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.27,
-   "cost_usd": 0.0020276,
+   "latency_s": 2.06,
+   "cost_usd": 0.0021171,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   zoom.exe                   Active client call, foreground with audio",
+    "keep   zoom.exe                   Current client call, foreground with audio",
     "keep   onenote.exe                Holds client call notes for meeting",
-    "keep   chrome.exe                 Shows client account for call",
-    "freeze code.exe                   Coding work unrelated to client call",
+    "keep   chrome.exe                 Shows client account info for call",
+    "freeze code.exe                   Coding unrelated to client call",
     "freeze steam.exe                  Game launcher unrelated, will disconnect"
    ],
    "question": null
@@ -254,16 +254,16 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.19,
-   "cost_usd": 0.0019301,
+   "latency_s": 2.48,
+   "cost_usd": 0.00195585,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   code.exe                   Main docs editor, currently in foreground",
-    "keep   chrome.exe                 API reference needed for accurate docs",
-    "keep   postman.exe                Shows payments endpoint for documentation",
-    "freeze whatsapp.exe               Chat unrelated to docs, will disconnect",
-    "freeze steam.exe                  Game launcher unrelated, will disconnect"
+    "keep   chrome.exe                 API reference needed for docs",
+    "keep   postman.exe                Payments endpoints help verify docs",
+    "freeze whatsapp.exe               Unrelated chat, will disconnect when frozen",
+    "freeze steam.exe                  Game launcher unrelated, frees memory"
    ],
    "question": null
   },
@@ -277,8 +277,8 @@
    "total": 4,
    "timer_correct": 1,
    "mistakes": [],
-   "latency_s": 2.17,
-   "cost_usd": 0.0018415999999999999,
+   "latency_s": 2.39,
+   "cost_usd": 0.00184185,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
@@ -299,15 +299,15 @@
    "total": 4,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.43,
-   "cost_usd": 0.0019460999999999999,
+   "latency_s": 2.11,
+   "cost_usd": 0.00190385,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   chrome.exe                 Foreground browser showing pull request for review",
-    "keep   code.exe                   Code editor needed to inspect pull request changes",
-    "freeze discord.exe                Chat app unrelated to review, will disconnect",
-    "freeze steam.exe                  Game launcher unrelated, frees lots of RAM"
+    "keep   code.exe                   Code editor needed to review pull request changes",
+    "freeze discord.exe                Chat unrelated to review; will disconnect when frozen",
+    "freeze steam.exe                  Game launcher unrelated; frees RAM"
    ],
    "question": null
   },
@@ -321,15 +321,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.04,
-   "cost_usd": 0.0019130999999999998,
+   "latency_s": 2.88,
+   "cost_usd": 0.00208335,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   anki.exe                   Foreground flashcards directly help biology study",
+    "keep   anki.exe                   Foreground flashcards directly help biology studying",
     "keep   msedge.exe                 Browser research supports biology exam preparation",
-    "freeze steam.exe                  Game launcher unrelated to study, will disconnect",
-    "freeze whatsapp.exe               Chat app distracts from study, will disconnect"
+    "freeze steam.exe                  Game launcher unrelated to studying, will disconnect",
+    "freeze whatsapp.exe               Chat app distracts from studying, will disconnect"
    ],
    "question": null
   },
@@ -343,16 +343,16 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.5,
-   "cost_usd": 0.00221085,
+   "latency_s": 2.76,
+   "cost_usd": 0.0021005999999999998,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   scrivener.exe              Main writing app for this task",
+    "keep   scrivener.exe              Main writing app for Chapter 5",
     "keep   chrome.exe                 Thesaurus research helps novel writing",
     "keep   spotify.exe                Playing audio, must stay on",
-    "freeze msedge.exe                 Social media unrelated, will disconnect",
-    "freeze discord.exe                Chat unrelated to solo writing, will disconnect"
+    "freeze msedge.exe                 Social media unrelated to writing",
+    "freeze discord.exe                Chat unrelated, will disconnect when frozen"
    ],
    "question": null
   },
@@ -366,15 +366,15 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 1.99,
-   "cost_usd": 0.0018590999999999998,
+   "latency_s": 2.87,
+   "cost_usd": 0.00391975,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   figma.exe                  Main design tool for landing page task",
-    "keep   chrome.exe                 Design inspiration supports landing page work",
+    "keep   figma.exe                  Main design tool for this task",
+    "keep   chrome.exe                 Design inspiration helps landing page work",
     "freeze slack.exe                  Work chat unrelated, will disconnect when frozen",
-    "freeze obs64.exe                  Recording tool not needed for design",
+    "freeze obs64.exe                  Recording tool not needed for designing",
     "freeze steam.exe                  Game launcher unrelated, will disconnect when frozen"
    ],
    "question": null
@@ -389,15 +389,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.33,
-   "cost_usd": 0.0018268499999999999,
+   "latency_s": 2.52,
+   "cost_usd": 0.0018866,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   excel.exe                  Main budget spreadsheet for Q1 task",
+    "keep   excel.exe                  Main budget spreadsheet for this task",
     "keep   outlook.exe                Headcount email supports budget planning",
-    "freeze spotify.exe                Music not needed, will disconnect",
-    "freeze epicgameslauncher.exe      Game launcher unrelated, frees lots RAM"
+    "freeze spotify.exe                Music unrelated, will disconnect streaming",
+    "freeze epicgameslauncher.exe      Game launcher unrelated to budgeting"
    ],
    "question": null
   },
@@ -411,15 +411,15 @@
    "total": 4,
    "timer_correct": 1,
    "mistakes": [],
-   "latency_s": 2.6,
-   "cost_usd": 0.00234885,
+   "latency_s": 3.02,
+   "cost_usd": 0.00205585,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   vlc.exe                    Playing your movie, foreground with audio",
-    "freeze code.exe                   Coding work not needed during movie break",
-    "freeze chrome.exe                 Research tabs unrelated to watching movie",
-    "freeze ms-teams.exe               Work chat not needed, will disconnect when frozen"
+    "keep   vlc.exe                    Movie player for current break",
+    "freeze code.exe                   Code work not needed during movie",
+    "freeze chrome.exe                 Research tabs not needed for break",
+    "freeze ms-teams.exe               Work chat not needed, will disconnect"
    ],
    "question": null
   },
@@ -433,16 +433,16 @@
    "total": 5,
    "timer_correct": 1,
    "mistakes": [],
-   "latency_s": 1.96,
-   "cost_usd": 0.0019630999999999997,
+   "latency_s": 2.19,
+   "cost_usd": 0.00186985,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   chrome.exe                 Foreground research for calculus homework",
+    "keep   chrome.exe                 Foreground research on calculus topic",
     "keep   acrobat.exe                Homework PDF needed for task",
     "keep   geogebra.exe               Graphing tool helps calculus work",
-    "freeze discord.exe                Unrelated chat, will disconnect when frozen",
-    "freeze robloxplayerbeta.exe       Game unrelated, frees lots of RAM"
+    "freeze discord.exe                Chat unrelated; will disconnect when frozen",
+    "freeze robloxplayerbeta.exe       Game unrelated; frees lots of RAM"
    ],
    "question": null
   },
@@ -456,14 +456,14 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.05,
-   "cost_usd": 0.00201085,
+   "latency_s": 2.16,
+   "cost_usd": 0.00210885,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   studio64.exe               Main IDE for debugging Android crash",
+    "keep   studio64.exe               Main IDE for debugging the crash",
     "keep   qemu-system-x86_64.exe     Emulator needed to reproduce crash",
-    "keep   chrome.exe                 Research for crash fix",
+    "keep   chrome.exe                 Crash research reference for debugging",
     "freeze ms-teams.exe               Work chat unrelated, will disconnect when frozen",
     "keep   spotify.exe                Playing audio must stay running"
    ],
@@ -479,16 +479,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.28,
-   "cost_usd": 0.00236785,
+   "latency_s": 2.68,
+   "cost_usd": 0.003859,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   onenote.exe                Holds your standup notes, foreground app",
-    "keep   ms-teams.exe               Needed for team standup communication",
+    "keep   onenote.exe                Foreground notes needed for standup preparation",
+    "keep   ms-teams.exe               Team standup happens in Teams",
     "keep   chrome.exe                 Sprint board helps prepare standup update",
     "freeze discord.exe                Gaming chat unrelated, will disconnect when frozen",
-    "freeze steam.exe                  Game launcher unrelated, frees lots of RAM"
+    "freeze steam.exe                  Game launcher unrelated to standup notes"
    ],
    "question": null
   },
@@ -502,15 +502,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.16,
-   "cost_usd": 0.0019443499999999999,
+   "latency_s": 2.14,
+   "cost_usd": 0.00384775,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   chrome.exe                 Course video playing in foreground",
-    "keep   code.exe                   Code editor for practicing React",
-    "freeze msedge.exe                 Unrelated videos; will disconnect network",
-    "freeze whatsapp.exe               Chat unrelated; will disconnect network"
+    "keep   chrome.exe                 Foreground course video with audio, core to learning",
+    "keep   code.exe                   Code editor for practicing React alongside course",
+    "freeze msedge.exe                 Unrelated entertainment video distracts from learning",
+    "freeze whatsapp.exe               Unrelated chat, will disconnect when frozen"
    ],
    "question": null
   },
@@ -520,20 +520,22 @@
     "hard"
    ],
    "model": "muse-spark-1.3",
-   "correct": 5,
+   "correct": 4,
    "total": 5,
    "timer_correct": 3,
-   "mistakes": [],
-   "latency_s": 4.49,
-   "cost_usd": 0.0039601,
+   "mistakes": [
+    "ms-teams.exe: want keep, got freeze (Work chat not needed for emails, will disconnect)"
+   ],
+   "latency_s": 4.4,
+   "cost_usd": 0.0035905999999999998,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   outlook.exe                Main email app for this task, currently in foreground",
-    "keep   ms-teams.exe               Work communication may help clarify work emails",
-    "keep   excel.exe                  Report may be needed as reference for replies",
-    "freeze whatsapp.exe               Personal chat unrelated to work emails, will disconnect",
-    "freeze epicgameslauncher.exe      Game launcher unrelated, frees lots of RAM"
+    "keep   outlook.exe                Main email app for this task",
+    "freeze ms-teams.exe               Work chat not needed for emails, will disconnect",
+    "keep   excel.exe                  Report may be needed for email replies",
+    "freeze whatsapp.exe               Personal chat distraction, will disconnect",
+    "freeze epicgameslauncher.exe      Game launcher unrelated to work emails"
    ],
    "question": null
   },
@@ -547,15 +549,15 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.1,
-   "cost_usd": 0.00197335,
+   "latency_s": 2.35,
+   "cost_usd": 0.00202885,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   chrome.exe                 Foreground shopping page directly helps laptop research",
-    "keep   msedge.exe                 Laptop review video supports buying research",
-    "keep   excel.exe                  Comparison spreadsheet tracks laptop research",
-    "freeze code.exe                   Coding side-project unrelated to laptop research",
+    "keep   chrome.exe                 Main research page for laptop shopping",
+    "keep   msedge.exe                 Laptop review helps buying research",
+    "keep   excel.exe                  Comparison sheet supports laptop decision",
+    "freeze code.exe                   Coding project unrelated to laptop research",
     "freeze ms-teams.exe               Work chat unrelated; will disconnect when frozen"
    ],
    "question": null
@@ -570,16 +572,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.43,
-   "cost_usd": 0.00200935,
+   "latency_s": 2.22,
+   "cost_usd": 0.00196285,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   valorant.exe               Main game being streamed, currently in foreground",
+    "keep   valorant.exe               Main game you are streaming, foreground with audio",
     "keep   obs64.exe                  Streaming software needed for Twitch broadcast",
-    "keep   chrome.exe                 Manages Twitch stream dashboard and chat",
-    "freeze code.exe                   Coding work unrelated to gaming stream",
-    "freeze excel.exe                  Spreadsheets unrelated to gaming stream"
+    "keep   chrome.exe                 Twitch manager supports your live stream",
+    "freeze code.exe                   Coding work unrelated to streaming",
+    "freeze excel.exe                  Spreadsheet unrelated to streaming"
    ],
    "question": null
   },
@@ -593,14 +595,14 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.14,
-   "cost_usd": 0.0020061,
+   "latency_s": 3.05,
+   "cost_usd": 0.0036885,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   winword.exe                Main thesis document you are writing now",
-    "keep   chrome.exe                 Holds research tabs for coral bleaching",
-    "freeze discord.exe                Chat unrelated to writing; will disconnect",
+    "keep   chrome.exe                 Holds research for coral bleaching thesis",
+    "freeze discord.exe                Chat unrelated to thesis; will disconnect when frozen",
     "freeze robloxplayerbeta.exe       Game unrelated to thesis work"
    ],
    "question": null
@@ -615,16 +617,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 1.81,
-   "cost_usd": 0.0037285,
+   "latency_s": 2.17,
+   "cost_usd": 0.00199985,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   msedge.exe                 Shows recipe needed for cooking dinner",
-    "keep   spotify.exe                Playing audio, must stay on",
-    "freeze code.exe                   Coding work unrelated to cooking",
-    "freeze ms-teams.exe               Work chat unrelated, will disconnect",
-    "freeze steam.exe                  Game launcher unrelated to cooking"
+    "keep   msedge.exe                 Shows lasagna recipe needed for cooking",
+    "keep   spotify.exe                Playing audio, must stay running",
+    "freeze code.exe                   Coding project unrelated to cooking dinner",
+    "freeze ms-teams.exe               Work chat unrelated, will disconnect when frozen",
+    "freeze steam.exe                  Game launcher unrelated to cooking task"
    ],
    "question": null
   },
@@ -638,16 +640,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 1.64,
-   "cost_usd": 0.0018073499999999999,
+   "latency_s": 2.18,
+   "cost_usd": 0.00204135,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   unity.exe                  Main level editor for current task",
-    "keep   code.exe                   Game scripts support level building",
+    "keep   code.exe                   Game code supports level building",
     "freeze steam.exe                  Game store unrelated, will disconnect",
-    "keep   aseprite.exe               Tileset art supports level building",
-    "freeze discord.exe                Chat unrelated, will disconnect"
+    "keep   aseprite.exe               Tileset art needed for levels",
+    "freeze discord.exe                Off-topic chat, will disconnect"
    ],
    "question": null
   },
@@ -662,16 +664,16 @@
    "total": 5,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.54,
-   "cost_usd": 0.0020606,
+   "latency_s": 2.34,
+   "cost_usd": 0.0038875,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   windowsterminal.exe        Foreground terminal running tests for the fix",
-    "keep   javaw.exe                  Main IDE with payment code open",
-    "keep   chrome.exe                 Research for bug fix",
+    "keep   javaw.exe                  Main IDE needed to fix the bug",
+    "keep   chrome.exe                 Research for the bug fix",
     "freeze discord.exe                Unrelated chat, will disconnect when frozen",
-    "freeze steam.exe                  Game launcher unrelated, will disconnect"
+    "freeze steam.exe                  Game launcher unrelated, frees lots of RAM"
    ],
    "question": null
   },
@@ -686,16 +688,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 3.71,
-   "cost_usd": 0.0032310999999999998,
+   "latency_s": 3.02,
+   "cost_usd": 0.0025981,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   winword.exe                Foreground app, plus proposal helps email replies",
-    "keep   msedge.exe                 Shows Outlook inbox needed for task",
-    "freeze chrome.exe                 Cat videos unrelated to client emails",
+    "keep   winword.exe                Foreground app and likely reference for client replies",
+    "keep   msedge.exe                 Shows Outlook inbox needed for email task",
+    "freeze chrome.exe                 Cat videos unrelated will disconnect streams",
     "keep   spotify.exe                Playing audio must stay running",
-    "freeze steam.exe                  Game launcher unrelated, frees lots RAM"
+    "freeze steam.exe                  Game launcher unrelated will disconnect"
    ],
    "question": null
   },
@@ -710,16 +712,16 @@
    "total": 5,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.23,
-   "cost_usd": 0.0019931,
+   "latency_s": 2.29,
+   "cost_usd": 0.0037265,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   excel.exe                  Main tax spreadsheet, active task file",
-    "keep   applicationframehost.exe   Calculator helps with tax math",
-    "keep   acrord32.exe               Tax instructions reference for task",
-    "freeze chrome.exe                 Gaming forum unrelated, will disconnect",
-    "freeze epicgameslauncher.exe      Game launcher unrelated to taxes"
+    "keep   excel.exe                  Main tax spreadsheet and current foreground app",
+    "keep   applicationframehost.exe   Calculator helps with tax calculations",
+    "keep   acrord32.exe               Tax instructions reference for this task",
+    "freeze chrome.exe                 Social media unrelated; will disconnect network",
+    "freeze epicgameslauncher.exe      Game launcher unrelated; will disconnect network"
    ],
    "question": null
   },
@@ -734,15 +736,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.02,
-   "cost_usd": 0.0017300999999999998,
+   "latency_s": 2.21,
+   "cost_usd": 0.0019471,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   code.exe                   Main editor running cleaning script",
-    "keep   python.exe                 Shows sales charts to check",
-    "freeze discord.exe                Gaming chat unrelated, will disconnect",
-    "freeze epicgameslauncher.exe      Game launcher unrelated to task"
+    "keep   code.exe                   Main editor running cleaning script, currently in use",
+    "keep   python.exe                 Shows sales charts needed for checking results",
+    "freeze discord.exe                Chat unrelated to task, will disconnect when frozen",
+    "freeze epicgameslauncher.exe      Game launcher unrelated, frees lots of memory"
    ],
    "question": null
   },
@@ -757,15 +759,15 @@
    "total": 4,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 2.96,
-   "cost_usd": 0.0025386,
+   "latency_s": 2.73,
+   "cost_usd": 0.0021946,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   code.exe                   Main editor for fixing auth bug",
     "keep   discord.exe                Live voice call with Sam for pairing",
-    "freeze steam.exe                  Game launcher unrelated to auth bug",
-    "freeze chrome.exe                 Entertainment video unrelated to pairing task"
+    "freeze steam.exe                  Game launcher unrelated to pairing task",
+    "freeze chrome.exe                 Entertainment video unrelated to auth bug"
    ],
    "question": null
   },
@@ -780,15 +782,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 1.96,
-   "cost_usd": 0.0018428499999999998,
+   "latency_s": 2.23,
+   "cost_usd": 0.00372075,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
     "keep   mygame.exe                 Game build you are testing",
-    "keep   steam.exe                  Launcher needed to test build",
-    "freeze discord.exe                Chat unrelated, will disconnect when frozen",
-    "freeze spotify.exe                Music not playing, unrelated, will disconnect"
+    "keep   steam.exe                  Launcher needed to test Steam build",
+    "freeze discord.exe                Unrelated chat; will disconnect when frozen",
+    "freeze spotify.exe                Unrelated music; will disconnect when frozen"
    ],
    "question": null
   },
@@ -803,15 +805,15 @@
    "total": 4,
    "timer_correct": 2,
    "mistakes": [],
-   "latency_s": 2.12,
-   "cost_usd": 0.0017450999999999999,
+   "latency_s": 2.26,
+   "cost_usd": 0.0018516,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   winword.exe                Foreground app for writing results",
-    "keep   windowsterminal.exe        Running model training needed for task",
-    "keep   chrome.exe                 Experiment dashboard tracks training progress",
-    "freeze steam.exe                  Game launcher unrelated, will disconnect"
+    "keep   winword.exe                Writing results document, needed for task",
+    "keep   windowsterminal.exe        Running model training, essential to keep",
+    "keep   chrome.exe                 Shows training dashboard for monitoring progress",
+    "freeze steam.exe                  Game launcher unrelated, will disconnect if frozen"
    ],
    "question": null
   },
@@ -826,14 +828,14 @@
    "total": 4,
    "timer_correct": 3,
    "mistakes": [],
-   "latency_s": 1.9,
-   "cost_usd": 0.0016678499999999998,
+   "latency_s": 2.1,
+   "cost_usd": 0.0018593499999999998,
    "fallback": [],
    "proposed_rules": [],
    "decisions": [
-    "keep   onenote.exe                Main notes app for lecture task",
-    "keep   vlc.exe                    Playing lecture recording, must stay on",
-    "freeze telegram.exe               Chat unrelated to lecture, will disconnect",
+    "keep   onenote.exe                Main notes app for this task",
+    "keep   vlc.exe                    Playing lecture recording, needed now",
+    "freeze telegram.exe               Chat unrelated, will disconnect when frozen",
     "freeze epicgameslauncher.exe      Game launcher unrelated, frees most RAM"
    ],
    "question": null

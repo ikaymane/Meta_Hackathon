@@ -1,0 +1,406 @@
+{
+ "ts": 1793374274.5741978,
+ "summary": {
+  "model": "muse-spark-1.3",
+  "reasoning_effort": "minimal",
+  "scenarios": 16,
+  "accuracy": 1.0,
+  "accuracy_model_only": 1.0,
+  "timer_accuracy": 0.568,
+  "timer_wrong_fixed": 0,
+  "perfect_scenarios": 16,
+  "fallbacks": 0,
+  "injection_rules_proposed": 0,
+  "latency_avg_s": 2.9,
+  "latency_max_s": 4.12,
+  "cost_per_call_usd": 0.003838,
+  "cost_total_usd": 0.061408
+ },
+ "results": [
+  {
+   "name": "student_thesis_chapter",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 3.61,
+   "cost_usd": 0.0043505,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   winword.exe                Main thesis document you are writing now",
+    "keep   zotero.exe                 Holds coral bleaching references for thesis",
+    "keep   acrord32.exe               Research PDF needed for thesis chapter",
+    "keep   spotify.exe                Currently playing audio, must stay open",
+    "freeze discord.exe                Unrelated chat, will disconnect when frozen",
+    "freeze steam.exe                  Game launcher unrelated to thesis writing",
+    "keep   explorer.exe               Windows system component must stay running"
+   ],
+   "question": null
+  },
+  {
+   "name": "office_sales_deck",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 4.12,
+   "cost_usd": 0.00438475,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   powerpnt.exe               Main deck you are editing",
+    "keep   excel.exe                  Sales data needed for deck",
+    "keep   chrome.exe                 Playing audio, must stay running",
+    "freeze whatsapp.exe               Family chat unrelated, will disconnect",
+    "freeze epicgameslauncher.exe      Game launcher unrelated to deck",
+    "freeze outlook.exe                Email not needed, will disconnect"
+   ],
+   "question": null
+  },
+  {
+   "name": "dev_login_bug",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 4,
+   "mistakes": [],
+   "latency_s": 3.89,
+   "cost_usd": 0.0043865,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   code.exe                   Main editor for fixing login code",
+    "keep   windowsterminal.exe        Runs dev server for testing fix",
+    "keep   docker desktop.exe         Provides database and cache containers",
+    "keep   chrome.exe                 Shows login page for reproducing bug",
+    "keep   spotify.exe                Playing audio must stay running",
+    "freeze discord.exe                Gaming chat unrelated, will disconnect",
+    "freeze slack.exe                  Work chat unrelated, will disconnect"
+   ],
+   "question": null
+  },
+  {
+   "name": "designer_landing_page",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 3.46,
+   "cost_usd": 0.00408275,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   figma.exe                  Main design tool for landing mockup, currently active",
+    "keep   photoshop.exe              Hero image editing directly supports bakery design",
+    "freeze msedge.exe                 Video streaming unrelated, will disconnect stream",
+    "keep   spotify.exe                Playing audio must stay running",
+    "freeze outlook.exe                Email unrelated to design work, will disconnect",
+    "freeze battle.net.exe             Game launcher unrelated to client work"
+   ],
+   "question": null
+  },
+  {
+   "name": "parent_school_forms",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 4,
+   "mistakes": [],
+   "latency_s": 3.93,
+   "cost_usd": 0.0043915,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   chrome.exe                 Parent portal for lunch payment task",
+    "keep   acrord32.exe               Permission slip needed for school forms",
+    "keep   msedge.exe                 Currently playing audio, must stay open",
+    "freeze robloxplayerbeta.exe       Game unrelated to forms, will disconnect",
+    "freeze steam.exe                  Game launcher unrelated, frees RAM",
+    "freeze whatsapp.exe               Chat unrelated to forms, will disconnect"
+   ],
+   "question": null
+  },
+  {
+   "name": "finance_bank_reconciliation",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 1.97,
+   "cost_usd": 0.003934,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   excel.exe                  Foreground spreadsheet for reconciliation work",
+    "keep   qbw32.exe                  General ledger needed for reconciliation",
+    "keep   acrord32.exe               March bank statement reference document",
+    "keep   vlc.exe                    Playing audio, must stay running",
+    "freeze telegram.exe               Unrelated chat, will disconnect when frozen",
+    "freeze firefox.exe                Social media unrelated to reconciliation"
+   ],
+   "question": null
+  },
+  {
+   "name": "video_wedding_edit",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 3.17,
+   "cost_usd": 0.004589,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   adobe premiere pro.exe     Main video editor for wedding cut",
+    "keep   adobe media encoder.exe    Encoding tonight's preview export",
+    "keep   afterfx.exe                Titles and graphics for wedding video",
+    "keep   foobar2000.exe             Playing audio, must stay running",
+    "freeze chrome.exe                 Shopping unrelated, will disconnect tabs",
+    "freeze steam.exe                  Game launcher unrelated, will disconnect"
+   ],
+   "question": null
+  },
+  {
+   "name": "music_mixdown",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 2.63,
+   "cost_usd": 0.00397675,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   fl64.exe                   Main mix session for track 2",
+    "keep   audacity.exe               Holds lead vocal take for mixing",
+    "keep   splice.exe                 Vocal sounds useful for this mix",
+    "keep   spotify.exe                Playing audio and reference for mix",
+    "freeze discord.exe                Chat unrelated, will disconnect when frozen",
+    "freeze leagueclient.exe           Game unrelated to vocal mixing"
+   ],
+   "question": null
+  },
+  {
+   "name": "gaming_coop_night",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 2,
+   "mistakes": [],
+   "latency_s": 2.62,
+   "cost_usd": 0.0023731,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   eldenring.exe              Main game you are playing now",
+    "keep   discord.exe                Voice chat with friends, audio active",
+    "keep   steam.exe                  Runs Elden Ring session",
+    "freeze winword.exe                Work document unrelated to gaming",
+    "freeze excel.exe                  Work spreadsheet unrelated to gaming",
+    "keep   chrome.exe                 Boss guide helps gameplay"
+   ],
+   "question": null
+  },
+  {
+   "name": "remote_client_call",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 4,
+   "total": 4,
+   "timer_correct": 2,
+   "mistakes": [],
+   "latency_s": 2.74,
+   "cost_usd": 0.0041895,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   ms-teams.exe               Active client call you are sharing from",
+    "keep   excel.exe                  Roadmap spreadsheet you are screen sharing",
+    "freeze spotify.exe                Paused music, will disconnect, not needed for call",
+    "freeze steam.exe                  Game launcher unrelated to client call",
+    "freeze outlook.exe                Email and calendar not needed during call"
+   ],
+   "question": null
+  },
+  {
+   "name": "research_lit_review",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 4,
+   "mistakes": [],
+   "latency_s": 2.8,
+   "cost_usd": 0.0021796,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   obsidian.exe               Foreground notes app for lit review",
+    "keep   zotero.exe                 Reference library for sleep studies",
+    "keep   firefox.exe                Research tabs for PubMed search",
+    "keep   msedge.exe                 Currently playing audio, must stay",
+    "freeze whatsapp.exe               Unrelated chat, will disconnect when frozen",
+    "freeze steam.exe                  Game launcher unrelated, frees RAM"
+   ],
+   "question": null
+  },
+  {
+   "name": "travel_lisbon_booking",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 2.42,
+   "cost_usd": 0.004117,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   msedge.exe                 Main tool for searching flights and hotels",
+    "keep   excel.exe                  Budget sheet needed to track cheapest options",
+    "keep   spotify.exe                Playing audio, must stay running",
+    "freeze photoshop.exe              Unrelated design work, frees lots of RAM",
+    "freeze blender.exe                Unrelated 3D work, frees lots of RAM",
+    "freeze outlook.exe                Email unrelated, will disconnect when frozen"
+   ],
+   "question": null
+  },
+  {
+   "name": "taxes_short_task",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 2.13,
+   "cost_usd": 0.003898,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   chrome.exe                 Foreground tax filing site needed for task",
+    "keep   acrobat.exe                W-2 tax document needed for filing",
+    "keep   excel.exe                  Expense spreadsheet needed for taxes",
+    "keep   vlc.exe                    Playing audio, must stay running",
+    "freeze steam.exe                  Game launcher unrelated, will disconnect",
+    "freeze discord.exe                Chat app unrelated, will disconnect"
+   ],
+   "question": null
+  },
+  {
+   "name": "photographer_client_delivery",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 5,
+   "total": 5,
+   "timer_correct": 2,
+   "mistakes": [],
+   "latency_s": 2.5,
+   "cost_usd": 0.0022458499999999998,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   lightroom.exe              Main catalog for editing Saturday shoot",
+    "keep   photoshop.exe              Retouching shoot photos for final selects",
+    "keep   thunderbird.exe            Composing email with final selects to client",
+    "keep   chrome.exe                 Currently playing audio, must stay running",
+    "freeze battle.net.exe             Game launcher unrelated, will disconnect when frozen",
+    "keep   explorer.exe               Windows system component must stay running"
+   ],
+   "question": null
+  },
+  {
+   "name": "data_science_churn_model",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 3,
+   "mistakes": [],
+   "latency_s": 2.43,
+   "cost_usd": 0.004124,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   pycharm64.exe              Main IDE for editing churn model",
+    "keep   windowsterminal.exe        Training run in progress, must stay",
+    "keep   dbeaver.exe                Warehouse database needed for training data",
+    "keep   spotify.exe                Playing audio, keep per rules",
+    "freeze obs64.exe                  Streaming app unrelated, will disconnect",
+    "freeze steam.exe                  Game launcher unrelated to modeling"
+   ],
+   "question": null
+  },
+  {
+   "name": "teacher_grading_quizzes",
+   "tags": [
+    "holdout"
+   ],
+   "model": "muse-spark-1.3",
+   "correct": 6,
+   "total": 6,
+   "timer_correct": 5,
+   "mistakes": [],
+   "latency_s": 2.05,
+   "cost_usd": 0.00418525,
+   "fallback": [],
+   "proposed_rules": [],
+   "decisions": [
+    "keep   excel.exe                  Gradebook needed to record quiz marks",
+    "keep   chrome.exe                 Classroom needed to post marks",
+    "keep   acrobat.exe                Scanned quizzes needed for grading",
+    "keep   msedge.exe                 Playing audio, must stay running",
+    "freeze discord.exe                Chat unrelated to grading, will disconnect",
+    "freeze epicgameslauncher.exe      Game launcher unrelated to grading task"
+   ],
+   "question": null
+  }
+ ]
+}

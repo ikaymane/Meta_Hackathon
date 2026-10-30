@@ -1,0 +1,178 @@
+[
+{"name": "student_thesis_chapter", "task": "finish my thesis chapter on coral bleaching, it's due tomorrow", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "winword.exe", "display_name": "Microsoft Word", "procs": [{"pid": 41011, "create_time": 1761850100.0}], "window_titles": ["Thesis_Chapter4_Bleaching.docx - Word"], "working_set_mb": 420, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "zotero.exe", "display_name": "Zotero", "procs": [{"pid": 41012, "create_time": 1761843000.0}], "window_titles": ["Zotero - Thesis Library - Coral Bleaching"], "working_set_mb": 380, "last_focus_s": 2400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "acrord32.exe", "display_name": "Adobe Acrobat Reader", "procs": [{"pid": 41013, "create_time": 1761844200.0}], "window_titles": ["Thermal_stress_in_reef_corals_2021.pdf - Adobe Acrobat Reader"], "working_set_mb": 310, "last_focus_s": 1500, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41014, "create_time": 1761842000.0}], "window_titles": ["Deep Focus - Spotify"], "working_set_mb": 350, "last_focus_s": 3100, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41015, "create_time": 1761841000.0}], "window_titles": ["#memes | Weekend Crew - Discord"], "working_set_mb": 640, "last_focus_s": 40, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41016, "create_time": 1761840000.0}], "window_titles": ["Steam - Library"], "working_set_mb": 520, "last_focus_s": 7200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "explorer.exe", "display_name": "File Explorer", "procs": [{"pid": 41017, "create_time": 1761830000.0}], "window_titles": ["Thesis - File Explorer"], "working_set_mb": 180, "last_focus_s": 900, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false}
+ ],
+ "expected": {"winword.exe": "keep", "zotero.exe": "keep", "acrord32.exe": "keep", "spotify.exe": "keep", "discord.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "office_sales_deck", "task": "need to get the Q3 sales deck done before 3", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "powerpnt.exe", "display_name": "Microsoft PowerPoint", "procs": [{"pid": 41021, "create_time": 1761851000.0}], "window_titles": ["Q3_Sales_Review.pptx - PowerPoint"], "working_set_mb": 560, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41022, "create_time": 1761846000.0}], "window_titles": ["Q3_Sales_By_Region.xlsx - Excel"], "working_set_mb": 490, "last_focus_s": 1800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41023, "create_time": 1761845000.0}], "window_titles": ["lofi beats to work to - YouTube - Google Chrome"], "working_set_mb": 1100, "last_focus_s": 1300, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "whatsapp.exe", "display_name": "WhatsApp", "procs": [{"pid": 41024, "create_time": 1761844000.0}], "window_titles": ["WhatsApp - Family group"], "working_set_mb": 410, "last_focus_s": 25, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "epicgameslauncher.exe", "display_name": "Epic Games Launcher", "procs": [{"pid": 41025, "create_time": 1761843000.0}], "window_titles": ["Epic Games Launcher"], "working_set_mb": 470, "last_focus_s": 9000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "outlook.exe", "display_name": "Microsoft Outlook", "procs": [{"pid": 41026, "create_time": 1761842000.0}], "window_titles": ["Inbox - Outlook"], "working_set_mb": 530, "last_focus_s": 600, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"powerpnt.exe": "keep", "excel.exe": "keep", "chrome.exe": "keep", "whatsapp.exe": "freeze", "epicgameslauncher.exe": "freeze"}},
+
+{"name": "dev_login_bug", "task": "fix the login bug on the staging branch", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "code.exe", "display_name": "Visual Studio Code", "procs": [{"pid": 41031, "create_time": 1761848000.0}], "window_titles": ["auth_controller.ts - webshop - Visual Studio Code"], "working_set_mb": 980, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "windowsterminal.exe", "display_name": "Windows Terminal", "procs": [{"pid": 41032, "create_time": 1761847000.0}], "window_titles": ["npm run dev - webshop"], "working_set_mb": 160, "last_focus_s": 900, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "docker desktop.exe", "display_name": "Docker Desktop", "procs": [{"pid": 41033, "create_time": 1761841000.0}], "window_titles": ["Docker Desktop - Containers: webshop-db, webshop-redis"], "working_set_mb": 720, "last_focus_s": 3000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41034, "create_time": 1761846000.0}], "window_titles": ["localhost:3000/login - Google Chrome"], "working_set_mb": 1250, "last_focus_s": 200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41035, "create_time": 1761840000.0}], "window_titles": ["Synthwave Mix - Spotify"], "working_set_mb": 330, "last_focus_s": 4000, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41036, "create_time": 1761839000.0}], "window_titles": ["#general | Gaming Lounge - Discord"], "working_set_mb": 600, "last_focus_s": 55, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "slack.exe", "display_name": "Slack", "procs": [{"pid": 41037, "create_time": 1761838000.0}], "window_titles": ["#dev-team - Acme Web - Slack"], "working_set_mb": 650, "last_focus_s": 700, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"code.exe": "keep", "windowsterminal.exe": "keep", "docker desktop.exe": "keep", "chrome.exe": "keep", "spotify.exe": "keep", "discord.exe": "freeze"}},
+
+{"name": "designer_landing_page", "task": "mock up the new landing page for the bakery client", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "figma.exe", "display_name": "Figma", "procs": [{"pid": 41041, "create_time": 1761849000.0}], "window_titles": ["Sunrise Bakery - Landing v2 - Figma"], "working_set_mb": 1400, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "photoshop.exe", "display_name": "Adobe Photoshop", "procs": [{"pid": 41042, "create_time": 1761845000.0}], "window_titles": ["bakery_hero_retouch.psd @ 50% - Adobe Photoshop"], "working_set_mb": 2600, "last_focus_s": 1400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "msedge.exe", "display_name": "Microsoft Edge", "procs": [{"pid": 41043, "create_time": 1761844000.0}], "window_titles": ["Netflix - Paused - Microsoft Edge"], "working_set_mb": 1050, "last_focus_s": 60, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41044, "create_time": 1761843000.0}], "window_titles": ["Indie Chill - Spotify"], "working_set_mb": 340, "last_focus_s": 2200, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "outlook.exe", "display_name": "Microsoft Outlook", "procs": [{"pid": 41045, "create_time": 1761842000.0}], "window_titles": ["Inbox - Outlook"], "working_set_mb": 500, "last_focus_s": 1000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "battle.net.exe", "display_name": "Battle.net", "procs": [{"pid": 41046, "create_time": 1761841000.0}], "window_titles": ["Battle.net"], "working_set_mb": 430, "last_focus_s": 6800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"figma.exe": "keep", "photoshop.exe": "keep", "msedge.exe": "freeze", "spotify.exe": "keep", "battle.net.exe": "freeze"}},
+
+{"name": "parent_school_forms", "task": "doing the school forms for the kids and paying their lunch account", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41051, "create_time": 1761850000.0}], "window_titles": ["Lunch Account Top-Up - District Parent Portal - Google Chrome"], "working_set_mb": 900, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "acrord32.exe", "display_name": "Adobe Acrobat Reader", "procs": [{"pid": 41052, "create_time": 1761846000.0}], "window_titles": ["Field_Trip_Permission_Slip.pdf - Adobe Acrobat Reader"], "working_set_mb": 260, "last_focus_s": 1200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "msedge.exe", "display_name": "Microsoft Edge", "procs": [{"pid": 41053, "create_time": 1761845000.0}], "window_titles": ["Kids Cartoons Marathon - YouTube - Microsoft Edge"], "working_set_mb": 780, "last_focus_s": 1600, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "robloxplayerbeta.exe", "display_name": "Roblox", "procs": [{"pid": 41054, "create_time": 1761847000.0}], "window_titles": ["Roblox"], "working_set_mb": 1300, "last_focus_s": 90, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41055, "create_time": 1761840000.0}], "window_titles": ["Steam - Store"], "working_set_mb": 480, "last_focus_s": 8400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "whatsapp.exe", "display_name": "WhatsApp", "procs": [{"pid": 41056, "create_time": 1761841000.0}], "window_titles": ["WhatsApp - Class 3B parents"], "working_set_mb": 390, "last_focus_s": 300, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"chrome.exe": "keep", "acrord32.exe": "keep", "msedge.exe": "keep", "robloxplayerbeta.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "finance_bank_reconciliation", "task": "reconcile the march bank statement against the ledger", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41061, "create_time": 1761849500.0}], "window_titles": ["March_Reconciliation.xlsx - Excel"], "working_set_mb": 620, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "qbw32.exe", "display_name": "QuickBooks Desktop", "procs": [{"pid": 41062, "create_time": 1761843000.0}], "window_titles": ["Northwind Supply LLC - General Ledger - QuickBooks"], "working_set_mb": 740, "last_focus_s": 2700, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "acrord32.exe", "display_name": "Adobe Acrobat Reader", "procs": [{"pid": 41063, "create_time": 1761846500.0}], "window_titles": ["Business_Checking_Statement_March.pdf - Adobe Acrobat Reader"], "working_set_mb": 240, "last_focus_s": 1000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "vlc.exe", "display_name": "VLC media player", "procs": [{"pid": 41064, "create_time": 1761842000.0}], "window_titles": ["History_Podcast_Ep12.mp3 - VLC media player"], "working_set_mb": 130, "last_focus_s": 3300, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": false},
+  {"app_id": "telegram.exe", "display_name": "Telegram", "procs": [{"pid": 41065, "create_time": 1761841000.0}], "window_titles": ["Telegram - Football Chat"], "working_set_mb": 290, "last_focus_s": 35, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "firefox.exe", "display_name": "Mozilla Firefox", "procs": [{"pid": 41066, "create_time": 1761840500.0}], "window_titles": ["r/funny - Reddit - Mozilla Firefox"], "working_set_mb": 850, "last_focus_s": 150, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"excel.exe": "keep", "qbw32.exe": "keep", "acrord32.exe": "keep", "vlc.exe": "keep", "telegram.exe": "freeze", "firefox.exe": "freeze"}},
+
+{"name": "video_wedding_edit", "task": "cutting the wedding video, the first preview export has to go out tonight", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "adobe premiere pro.exe", "display_name": "Adobe Premiere Pro", "procs": [{"pid": 41071, "create_time": 1761842000.0}], "window_titles": ["Wedding_Edit_v3.prproj - Adobe Premiere Pro"], "working_set_mb": 6200, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "adobe media encoder.exe", "display_name": "Adobe Media Encoder", "procs": [{"pid": 41072, "create_time": 1761843000.0}], "window_titles": ["Adobe Media Encoder - Queue: Wedding_Preview_1080p.mp4"], "working_set_mb": 1800, "last_focus_s": 1800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "afterfx.exe", "display_name": "Adobe After Effects", "procs": [{"pid": 41073, "create_time": 1761841500.0}], "window_titles": ["Wedding_Titles.aep - Adobe After Effects"], "working_set_mb": 3100, "last_focus_s": 2200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "foobar2000.exe", "display_name": "foobar2000", "procs": [{"pid": 41074, "create_time": 1761840000.0}], "window_titles": ["Ambient Piano - foobar2000"], "working_set_mb": 90, "last_focus_s": 2600, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": false},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41075, "create_time": 1761839000.0}], "window_titles": ["Running shoes on sale - Online Shop - Google Chrome"], "working_set_mb": 1500, "last_focus_s": 70, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41076, "create_time": 1761838000.0}], "window_titles": ["Steam - Friends"], "working_set_mb": 510, "last_focus_s": 5400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"adobe premiere pro.exe": "keep", "adobe media encoder.exe": "keep", "afterfx.exe": "keep", "foobar2000.exe": "keep", "chrome.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "music_mixdown", "task": "mixing track 2 tonight, gotta get the vocals sitting right", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "fl64.exe", "display_name": "FL Studio", "procs": [{"pid": 41081, "create_time": 1761844000.0}], "window_titles": ["Track2_Mix_v5.flp - FL Studio"], "working_set_mb": 2800, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "audacity.exe", "display_name": "Audacity", "procs": [{"pid": 41082, "create_time": 1761843000.0}], "window_titles": ["Track2_Lead_Vocal_Take7 - Audacity"], "working_set_mb": 520, "last_focus_s": 1500, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "splice.exe", "display_name": "Splice", "procs": [{"pid": 41083, "create_time": 1761842000.0}], "window_titles": ["Splice - Vocal Chops Pack"], "working_set_mb": 310, "last_focus_s": 2000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41084, "create_time": 1761841000.0}], "window_titles": ["Reference Track - Pop Mixes - Spotify"], "working_set_mb": 320, "last_focus_s": 400, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41085, "create_time": 1761840000.0}], "window_titles": ["#off-topic | Game Night - Discord"], "working_set_mb": 590, "last_focus_s": 20, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "leagueclient.exe", "display_name": "League of Legends", "procs": [{"pid": 41086, "create_time": 1761839000.0}], "window_titles": ["League of Legends"], "working_set_mb": 980, "last_focus_s": 3600, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"fl64.exe": "keep", "audacity.exe": "keep", "splice.exe": "keep", "spotify.exe": "keep", "discord.exe": "freeze", "leagueclient.exe": "freeze"}},
+
+{"name": "gaming_coop_night", "task": "gonna play elden ring with the boys", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "eldenring.exe", "display_name": "ELDEN RING", "procs": [{"pid": 41091, "create_time": 1761851000.0}], "window_titles": ["ELDEN RING"], "working_set_mb": 7400, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41092, "create_time": 1761847000.0}], "window_titles": ["Voice Connected - Elden Squad - Discord"], "working_set_mb": 680, "last_focus_s": 1200, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41093, "create_time": 1761846000.0}], "window_titles": ["Steam - Now Playing: ELDEN RING"], "working_set_mb": 540, "last_focus_s": 1600, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "winword.exe", "display_name": "Microsoft Word", "procs": [{"pid": 41094, "create_time": 1761843000.0}], "window_titles": ["Meeting_Notes_Monday.docx - Word"], "working_set_mb": 410, "last_focus_s": 30, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41095, "create_time": 1761842000.0}], "window_titles": ["Project_Timeline.xlsx - Excel"], "working_set_mb": 450, "last_focus_s": 180, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41096, "create_time": 1761841000.0}], "window_titles": ["Elden Ring Boss Guide - Google Chrome"], "working_set_mb": 1200, "last_focus_s": 500, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"eldenring.exe": "keep", "discord.exe": "keep", "steam.exe": "keep", "winword.exe": "freeze", "excel.exe": "freeze"}},
+
+{"name": "remote_client_call", "task": "client call on teams now, i'll be screen sharing the roadmap spreadsheet", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "ms-teams.exe", "display_name": "Microsoft Teams", "procs": [{"pid": 41101, "create_time": 1761849000.0}], "window_titles": ["Roadmap sync with client | Microsoft Teams"], "working_set_mb": 1100, "last_focus_s": 0, "is_foreground": true, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41102, "create_time": 1761844000.0}], "window_titles": ["Product_Roadmap_2027.xlsx - Excel"], "working_set_mb": 470, "last_focus_s": 2400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41103, "create_time": 1761843000.0}], "window_titles": ["Spotify Premium - Paused"], "working_set_mb": 330, "last_focus_s": 30, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41104, "create_time": 1761842000.0}], "window_titles": ["Steam - Downloads"], "working_set_mb": 500, "last_focus_s": 7800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "outlook.exe", "display_name": "Microsoft Outlook", "procs": [{"pid": 41105, "create_time": 1761841000.0}], "window_titles": ["Calendar - Outlook"], "working_set_mb": 510, "last_focus_s": 240, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"ms-teams.exe": "keep", "excel.exe": "keep", "spotify.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "research_lit_review", "task": "lit review on sleep and memory consolidation", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "obsidian.exe", "display_name": "Obsidian", "procs": [{"pid": 41111, "create_time": 1761848000.0}], "window_titles": ["Sleep & memory lit notes - Research Vault - Obsidian"], "working_set_mb": 460, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "zotero.exe", "display_name": "Zotero", "procs": [{"pid": 41112, "create_time": 1761842000.0}], "window_titles": ["Zotero - Sleep Studies Collection"], "working_set_mb": 420, "last_focus_s": 3000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "firefox.exe", "display_name": "Mozilla Firefox", "procs": [{"pid": 41113, "create_time": 1761846000.0}], "window_titles": ["sleep memory consolidation - PubMed - Mozilla Firefox"], "working_set_mb": 1150, "last_focus_s": 1100, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "msedge.exe", "display_name": "Microsoft Edge", "procs": [{"pid": 41114, "create_time": 1761845000.0}], "window_titles": ["Rain sounds for studying - YouTube - Microsoft Edge"], "working_set_mb": 760, "last_focus_s": 1900, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "whatsapp.exe", "display_name": "WhatsApp", "procs": [{"pid": 41115, "create_time": 1761843000.0}], "window_titles": ["WhatsApp - Flatmates"], "working_set_mb": 380, "last_focus_s": 15, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41116, "create_time": 1761841000.0}], "window_titles": ["Steam - Library"], "working_set_mb": 490, "last_focus_s": 10800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"obsidian.exe": "keep", "zotero.exe": "keep", "firefox.exe": "keep", "msedge.exe": "keep", "whatsapp.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "travel_lisbon_booking", "task": "book flights and a hotel for lisbon in may, cheapest i can find, keeping it within my budget sheet", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "msedge.exe", "display_name": "Microsoft Edge", "procs": [{"pid": 41121, "create_time": 1761850000.0}], "window_titles": ["Flights to Lisbon in May - Compare Fares - Microsoft Edge"], "working_set_mb": 1300, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41122, "create_time": 1761845000.0}], "window_titles": ["Lisbon_Trip_Budget.xlsx - Excel"], "working_set_mb": 380, "last_focus_s": 1300, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41123, "create_time": 1761844000.0}], "window_titles": ["Fado Classics - Spotify"], "working_set_mb": 320, "last_focus_s": 2500, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "photoshop.exe", "display_name": "Adobe Photoshop", "procs": [{"pid": 41124, "create_time": 1761843000.0}], "window_titles": ["poster_draft.psd @ 33% - Adobe Photoshop"], "working_set_mb": 2300, "last_focus_s": 120, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "blender.exe", "display_name": "Blender", "procs": [{"pid": 41125, "create_time": 1761842000.0}], "window_titles": ["robot_rig.blend - Blender"], "working_set_mb": 1900, "last_focus_s": 4200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "outlook.exe", "display_name": "Microsoft Outlook", "procs": [{"pid": 41126, "create_time": 1761841000.0}], "window_titles": ["Inbox - Outlook"], "working_set_mb": 490, "last_focus_s": 800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"msedge.exe": "keep", "excel.exe": "keep", "spotify.exe": "keep", "photoshop.exe": "freeze", "blender.exe": "freeze"}},
+
+{"name": "taxes_short_task", "task": "taxes. ugh.", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41131, "create_time": 1761849000.0}], "window_titles": ["Income Tax Return 2025 - Step 3 of 7 - Online Tax Filing - Google Chrome"], "working_set_mb": 1000, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "acrobat.exe", "display_name": "Adobe Acrobat", "procs": [{"pid": 41132, "create_time": 1761844000.0}], "window_titles": ["W-2_Form_2025.pdf - Adobe Acrobat"], "working_set_mb": 340, "last_focus_s": 1900, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41133, "create_time": 1761843000.0}], "window_titles": ["Deductible_Expenses_2025.xlsx - Excel"], "working_set_mb": 420, "last_focus_s": 2200, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "vlc.exe", "display_name": "VLC media player", "procs": [{"pid": 41134, "create_time": 1761842000.0}], "window_titles": ["Jazz_Playlist.m3u - VLC media player"], "working_set_mb": 120, "last_focus_s": 3000, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": false},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41135, "create_time": 1761841000.0}], "window_titles": ["Steam - Library"], "working_set_mb": 500, "last_focus_s": 5000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41136, "create_time": 1761840000.0}], "window_titles": ["#random | Friends Server - Discord"], "working_set_mb": 610, "last_focus_s": 45, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"chrome.exe": "keep", "acrobat.exe": "keep", "excel.exe": "keep", "vlc.exe": "keep", "steam.exe": "freeze", "discord.exe": "freeze"}},
+
+{"name": "photographer_client_delivery", "task": "edit saturday's shoot and email the final selects to the client", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "lightroom.exe", "display_name": "Adobe Lightroom Classic", "procs": [{"pid": 41141, "create_time": 1761847000.0}], "window_titles": ["Saturday_Shoot.lrcat - Adobe Lightroom Classic"], "working_set_mb": 3200, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "photoshop.exe", "display_name": "Adobe Photoshop", "procs": [{"pid": 41142, "create_time": 1761845000.0}], "window_titles": ["DSC_0412_retouch.psd @ 66% - Adobe Photoshop"], "working_set_mb": 2700, "last_focus_s": 1500, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "thunderbird.exe", "display_name": "Mozilla Thunderbird", "procs": [{"pid": 41143, "create_time": 1761843000.0}], "window_titles": ["Write: Your final selects from Saturday - Thunderbird"], "working_set_mb": 360, "last_focus_s": 2500, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41144, "create_time": 1761842000.0}], "window_titles": ["Speedrun Marathon - Twitch - Google Chrome"], "working_set_mb": 1300, "last_focus_s": 500, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "battle.net.exe", "display_name": "Battle.net", "procs": [{"pid": 41145, "create_time": 1761841000.0}], "window_titles": ["Battle.net"], "working_set_mb": 440, "last_focus_s": 75, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "explorer.exe", "display_name": "File Explorer", "procs": [{"pid": 41146, "create_time": 1761830000.0}], "window_titles": ["Saturday_Shoot_Exports - File Explorer"], "working_set_mb": 170, "last_focus_s": 400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false}
+ ],
+ "expected": {"lightroom.exe": "keep", "photoshop.exe": "keep", "thunderbird.exe": "keep", "chrome.exe": "keep", "battle.net.exe": "freeze"}},
+
+{"name": "data_science_churn_model", "task": "tweak the churn model, training's already running in the terminal and pulling from the warehouse db", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "pycharm64.exe", "display_name": "PyCharm", "procs": [{"pid": 41151, "create_time": 1761846000.0}], "window_titles": ["churn_model - train.py - PyCharm"], "working_set_mb": 2100, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "windowsterminal.exe", "display_name": "Windows Terminal", "procs": [{"pid": 41152, "create_time": 1761843000.0}], "window_titles": ["python train.py --epochs 40 - epoch 22/40"], "working_set_mb": 210, "last_focus_s": 3400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "dbeaver.exe", "display_name": "DBeaver", "procs": [{"pid": 41153, "create_time": 1761842000.0}], "window_titles": ["DBeaver - warehouse - customer_events"], "working_set_mb": 880, "last_focus_s": 1700, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "spotify.exe", "display_name": "Spotify", "procs": [{"pid": 41154, "create_time": 1761841000.0}], "window_titles": ["Instrumental Study - Spotify"], "working_set_mb": 340, "last_focus_s": 2800, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "obs64.exe", "display_name": "OBS Studio", "procs": [{"pid": 41155, "create_time": 1761840000.0}], "window_titles": ["OBS Studio - Profile: Gaming Stream - Not recording"], "working_set_mb": 650, "last_focus_s": 50, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "steam.exe", "display_name": "Steam", "procs": [{"pid": 41156, "create_time": 1761839000.0}], "window_titles": ["Steam - Store"], "working_set_mb": 470, "last_focus_s": 6400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"pycharm64.exe": "keep", "windowsterminal.exe": "keep", "dbeaver.exe": "keep", "spotify.exe": "keep", "obs64.exe": "freeze", "steam.exe": "freeze"}},
+
+{"name": "teacher_grading_quizzes", "task": "grade the scanned 8th grade quizzes and post the marks to classroom", "tags": ["holdout"],
+ "snapshots": [
+  {"app_id": "excel.exe", "display_name": "Microsoft Excel", "procs": [{"pid": 41161, "create_time": 1761848500.0}], "window_titles": ["Grade8_Gradebook_Term1.xlsx - Excel"], "working_set_mb": 400, "last_focus_s": 0, "is_foreground": true, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "chrome.exe", "display_name": "Google Chrome", "procs": [{"pid": 41162, "create_time": 1761846000.0}], "window_titles": ["Grade 8 Science - Grades - Google Classroom - Google Chrome"], "working_set_mb": 960, "last_focus_s": 1000, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "acrobat.exe", "display_name": "Adobe Acrobat", "procs": [{"pid": 41163, "create_time": 1761845000.0}], "window_titles": ["Quiz3_Scans_Grade8.pdf - Adobe Acrobat"], "working_set_mb": 470, "last_focus_s": 400, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": false},
+  {"app_id": "msedge.exe", "display_name": "Microsoft Edge", "procs": [{"pid": 41164, "create_time": 1761844000.0}], "window_titles": ["Classical Music Radio - Microsoft Edge"], "working_set_mb": 650, "last_focus_s": 2100, "is_foreground": false, "plays_audio": true, "is_elevated": false, "has_network": true},
+  {"app_id": "discord.exe", "display_name": "Discord", "procs": [{"pid": 41165, "create_time": 1761843000.0}], "window_titles": ["#chat | Board Game Club - Discord"], "working_set_mb": 570, "last_focus_s": 65, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true},
+  {"app_id": "epicgameslauncher.exe", "display_name": "Epic Games Launcher", "procs": [{"pid": 41166, "create_time": 1761842000.0}], "window_titles": ["Epic Games Launcher"], "working_set_mb": 460, "last_focus_s": 8800, "is_foreground": false, "plays_audio": false, "is_elevated": false, "has_network": true}
+ ],
+ "expected": {"excel.exe": "keep", "chrome.exe": "keep", "acrobat.exe": "keep", "msedge.exe": "keep", "discord.exe": "freeze", "epicgameslauncher.exe": "freeze"}}
+]

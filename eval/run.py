@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -69,8 +70,10 @@ def main() -> None:
     ap.add_argument("--effort", default=DEFAULT_EFFORT,
                     help="reasoning_effort: minimal, low, medium, high, or 'auto' to let the model pick")
     ap.add_argument("--workers", type=int, default=5)
+    ap.add_argument("--out", help="results file (default results/latest.json, skipped with --only)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
+    os.environ["FF_SYNTHETIC_DATA"] = "1"  # every scenario is made up: see planner._data_gate
     if args.effort == "auto":
         args.effort = None
 
@@ -138,8 +141,8 @@ def main() -> None:
         print(f"model-only accuracy {api_correct}/{api_total} = {summary['accuracy_model_only']:.0%} "
               f"({summary['fallbacks']} scenarios fell back and are excluded)")
 
-    if not args.only:
-        out = EVAL_DIR / "results" / "latest.json"
+    if args.out or not args.only:
+        out = Path(args.out) if args.out else EVAL_DIR / "results" / "latest.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps({"ts": time.time(), "summary": summary, "results": results}, indent=1),
                        encoding="utf-8")

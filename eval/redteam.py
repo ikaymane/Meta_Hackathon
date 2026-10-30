@@ -386,7 +386,8 @@ def main(argv: list[str] | None = None) -> None:
     HOME.mkdir(parents=True, exist_ok=True)
     for f in HOME.glob("sessions*.json"):
         f.unlink()
-    os.environ["FF_HOME"] = str(HOME)
+    os.environ["FF_HOME"] = os.environ.get("FF_REDTEAM_HOME") or str(HOME)  # override for parallel runs
+    os.environ["FF_SYNTHETIC_DATA"] = "1"  # every attack is made up: see planner._data_gate
 
     ids = {i.strip() for i in args.ids.split(",") if i.strip()} if args.ids else set()
     attacks = [a for a in load_attacks()

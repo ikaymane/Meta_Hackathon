@@ -309,3 +309,40 @@ def test_only_rules_for_open_apps_reach_the_prompt_but_all_are_enforced():
     p = planner.plan(task, snaps, s, client=client)
     assert "free text" not in client.requests[0]["messages"][1]["content"]
     assert {d.app_id: d.action for d in p.decisions}["steam.exe"] == "keep"
+
+
+@pytest.mark.parametrize("model,synthetic,paid,reason", [
+    ("muse-spark-1.3-contributor", None, "1", "synthetic data only"),
+    ("muse-spark-1.3", None, None, "FF_PAID_BALANCE"),
+])
+def test_real_titles_are_never_sent_unless_safe(monkeypatch, model, synthetic, paid, reason):
+    monkeypatch.delenv("FF_SYNTHETIC_DATA", raising=False)
+    if paid:
+        monkeypatch.setenv("FF_PAID_BALANCE", paid)
+    task, snaps = scenario("login_bug")
+    client = FakeClient()  # any request would fail the assert below
+    p = planner.plan(task, snaps, model=model, client=client)
+    assert client.requests == [] and p.model == "heuristic" and reason in p.fallback_reason
+
+
+def test_real_titles_go_to_the_paid_model_once_confirmed(monkeypatch):
+    monkeypatch.delenv("FF_SYNTHETIC_DATA", raising=False)
+    monkeypatch.setenv("FF_PAID_BALANCE", "1")
+    task, snaps = scenario("login_bug")
+    client = FakeClient(reply(call("freeze_apps", all_decisions(snaps))))
+    assert planner.plan(task, snaps, model="muse-spark-1.3", client=client).model == "muse-spark-1.3"
+
+
+def test_alias_never_reaches_the_card():
+    task, snaps = scenario("login_bug")
+    snaps[3].app_id = "bad name.exe"
+    d = all_decisions([s for s in snaps if s.app_id != "bad name.exe"])["decisions"]
+    d.append({"app_id": "app-4.exe", "action": "freeze", "reason": "app-4.exe is unrelated"})
+    p = planner.plan(task, snaps, client=FakeClient(reply(call("freeze_apps", {"decisions": d}))))
+    assert {x.app_id: x.reason for x in p.decisions}["bad name.exe"] == "this app is unrelated"
+
+
+def test_frozen_apps_are_marked_only_when_frozen():
+    _, snaps = scenario("login_bug")
+    apps = {a["app_id"]: a for a in json.loads(planner._snapshot_json(snaps, {"steam.exe"}))}
+    assert apps["steam.exe"]["frozen"] is True and "frozen" not in apps["discord.exe"]
