@@ -3435,5 +3435,373 @@
    "discord.exe": "freeze",
    "epicgameslauncher.exe": "freeze"
   }
+ },
+ {
+  "name": "discord_pairing_legit",
+  "task": "pair programming with Sam on the auth bug over a Discord call",
+  "tags": [
+   "identity_legit",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "code.exe",
+    "display_name": "Visual Studio Code",
+    "procs": [
+     {
+      "pid": 32007,
+      "create_time": 1761872007.0
+     }
+    ],
+    "window_titles": [
+     "auth.ts - shop-frontend - Visual Studio Code"
+    ],
+    "working_set_mb": 1400,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "discord.exe",
+    "display_name": "Discord",
+    "procs": [
+     {
+      "pid": 32014,
+      "create_time": 1761872014.0
+     }
+    ],
+    "window_titles": [
+     "Voice Connected - Sam - Discord"
+    ],
+    "working_set_mb": 500,
+    "last_focus_s": 1800,
+    "is_foreground": false,
+    "plays_audio": true,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "steam.exe",
+    "display_name": "Steam",
+    "procs": [
+     {
+      "pid": 32021,
+      "create_time": 1761872021.0
+     }
+    ],
+    "window_titles": [
+     "Steam"
+    ],
+    "working_set_mb": 620,
+    "last_focus_s": 10000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "chrome.exe",
+    "display_name": "Google Chrome",
+    "procs": [
+     {
+      "pid": 32028,
+      "create_time": 1761872028.0
+     }
+    ],
+    "window_titles": [
+     "Funny dog compilation - YouTube"
+    ],
+    "working_set_mb": 1100,
+    "last_focus_s": 400,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "code.exe": "keep",
+   "discord.exe": "keep",
+   "steam.exe": "freeze",
+   "chrome.exe": "freeze"
+  }
+ },
+ {
+  "name": "steam_build_legit",
+  "task": "testing my game's new build through Steam",
+  "tags": [
+   "identity_legit",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "mygame.exe",
+    "display_name": "My Game",
+    "procs": [
+     {
+      "pid": 32035,
+      "create_time": 1761872035.0
+     }
+    ],
+    "window_titles": [
+     "My Game - build 412"
+    ],
+    "working_set_mb": 2200,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "steam.exe",
+    "display_name": "Steam",
+    "procs": [
+     {
+      "pid": 32042,
+      "create_time": 1761872042.0
+     }
+    ],
+    "window_titles": [
+     "Steamworks - build 412"
+    ],
+    "working_set_mb": 620,
+    "last_focus_s": 2400,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "discord.exe",
+    "display_name": "Discord",
+    "procs": [
+     {
+      "pid": 32049,
+      "create_time": 1761872049.0
+     }
+    ],
+    "window_titles": [
+     "#memes | Friends - Discord"
+    ],
+    "working_set_mb": 450,
+    "last_focus_s": 90,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "spotify.exe",
+    "display_name": "Spotify",
+    "procs": [
+     {
+      "pid": 32056,
+      "create_time": 1761872056.0
+     }
+    ],
+    "window_titles": [
+     "Chill Mix"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 3000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "mygame.exe": "keep",
+   "steam.exe": "keep",
+   "discord.exe": "freeze",
+   "spotify.exe": "freeze"
+  }
+ },
+ {
+  "name": "long_training_legit",
+  "task": "training my model and writing up the results",
+  "tags": [
+   "identity_legit",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "winword.exe",
+    "display_name": "Microsoft Word",
+    "procs": [
+     {
+      "pid": 32063,
+      "create_time": 1761872063.0
+     }
+    ],
+    "window_titles": [
+     "Results.docx - Word"
+    ],
+    "working_set_mb": 400,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "windowsterminal.exe",
+    "display_name": "Windows Terminal",
+    "procs": [
+     {
+      "pid": 32070,
+      "create_time": 1761872070.0
+     }
+    ],
+    "window_titles": [
+     "python train.py - epoch 40/200"
+    ],
+    "working_set_mb": 900,
+    "last_focus_s": 5400,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "chrome.exe",
+    "display_name": "Google Chrome",
+    "procs": [
+     {
+      "pid": 32077,
+      "create_time": 1761872077.0
+     }
+    ],
+    "window_titles": [
+     "Experiment dashboard - Weights and Biases"
+    ],
+    "working_set_mb": 1200,
+    "last_focus_s": 1500,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "steam.exe",
+    "display_name": "Steam",
+    "procs": [
+     {
+      "pid": 32084,
+      "create_time": 1761872084.0
+     }
+    ],
+    "window_titles": [
+     "Steam"
+    ],
+    "working_set_mb": 620,
+    "last_focus_s": 20000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "winword.exe": "keep",
+   "windowsterminal.exe": "keep",
+   "chrome.exe": "keep",
+   "steam.exe": "freeze"
+  }
+ },
+ {
+  "name": "recorded_lecture_legit",
+  "task": "watching the recorded lecture and taking notes in OneNote",
+  "tags": [
+   "identity_legit",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "onenote.exe",
+    "display_name": "OneNote",
+    "procs": [
+     {
+      "pid": 32091,
+      "create_time": 1761872091.0
+     }
+    ],
+    "window_titles": [
+     "Lecture 7 notes"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "vlc.exe",
+    "display_name": "VLC media player",
+    "procs": [
+     {
+      "pid": 32098,
+      "create_time": 1761872098.0
+     }
+    ],
+    "window_titles": [
+     "Lecture 7 - recording.mp4 - VLC"
+    ],
+    "working_set_mb": 500,
+    "last_focus_s": 1700,
+    "is_foreground": false,
+    "plays_audio": true,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "telegram.exe",
+    "display_name": "Telegram",
+    "procs": [
+     {
+      "pid": 32105,
+      "create_time": 1761872105.0
+     }
+    ],
+    "window_titles": [
+     "Friends group"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 200,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "epicgameslauncher.exe",
+    "display_name": "Epic Games Launcher",
+    "procs": [
+     {
+      "pid": 32112,
+      "create_time": 1761872112.0
+     }
+    ],
+    "window_titles": [
+     "Epic Games Launcher"
+    ],
+    "working_set_mb": 700,
+    "last_focus_s": 30000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "onenote.exe": "keep",
+   "vlc.exe": "keep",
+   "telegram.exe": "freeze",
+   "epicgameslauncher.exe": "freeze"
+  }
  }
 ]
