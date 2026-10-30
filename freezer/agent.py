@@ -37,6 +37,35 @@ MAX_AUTO_FREEZE = 3
 # sensor, so a title like "server stopped, terminal not in use" can't fake it (red-team gap-03).
 GUARDIAN_MIN_IDLE_S = 5 * 60
 
+# Plain words for the card (D renders these; policy rule ids are B's).
+BLOCK_REASONS = {
+    "system_process": "Part of Windows", "security": "Security software",
+    "foreground": "You're using it right now", "plays_audio": "Playing sound",
+    "elevated": "Runs as administrator", "self": "Focus Freeze itself",
+    "unknown_app": "Closed or not found",
+}
+GUARDIAN_SKIPPED = "Not one of the idle apps the memory guardian picked"
+POLICY_SILENT = "Kept for safety"
+
+
+def block_reason(rule: str) -> str:
+    return BLOCK_REASONS.get(rule, "Protected by a safety rule")
+
+
+def fallback_message(reason: str | None) -> str | None:
+    """Card banner when the plan came from the simple idle rule instead of the AI."""
+    if not reason:
+        return None
+    if "spend cap" in reason:
+        why = "the AI budget for this month is used up"
+    elif "no API client" in reason:
+        why = "the AI isn't set up on this PC"
+    elif "usage log" in reason:
+        why = "Focus Freeze can't record AI costs right now"
+    else:
+        why = "the AI didn't answer in time"
+    return f"Simple mode: {why}, so this list uses idle time only. Check it before you freeze."
+
 
 class Sensor(Protocol):
     def snapshot(self) -> list[AppSnapshot]: ...
@@ -57,11 +86,17 @@ class Proposal:
     source: Literal["user", "guardian"] = "user"
     session: str | None = None
     thaw: list[Decision] = field(default_factory=list)  # frozen apps the new task needs back
+    apps: dict[str, AppSnapshot] = field(default_factory=dict)  # display_name, MB for the card
 
     @property
     def fallback_reason(self) -> str | None:
-        """Show this on the card: the plan came from the simple rule, not the AI."""
+        """Technical reason the plan came from the simple rule (logs); see fallback_message."""
         return self.plan.fallback_reason
+
+    @property
+    def fallback_message(self) -> str | None:
+        """The same, in words for the card banner."""
+        return fallback_message(self.plan.fallback_reason)
 
 
 @dataclass
@@ -70,6 +105,7 @@ class Outcome:
     frozen: list[LedgerEntry] = field(default_factory=list)
     failed: list[str] = field(default_factory=list)  # approved, but the actuator raised
     unticked: list[str] = field(default_factory=list)  # on the card but left out: UI may offer a rule
+    skipped: list[Blocked] = field(default_factory=list)  # approved, but policy said no at freeze time
     thawed: list[str] = field(default_factory=list)
     question: str | None = None
     declined: bool = False
@@ -111,8 +147,7 @@ class FocusAgent:
                 continue
             if d.action == "freeze":  # outside the guardian's candidates, or policy was silent
                 outside = candidates is not None and d.app_id not in candidates
-                d = Decision(d.app_id, "keep", "Not on the memory guardian's list" if outside
-                             else "Policy did not clear it")
+                d = Decision(d.app_id, "keep", GUARDIAN_SKIPPED if outside else POLICY_SILENT)
             keep.append(d)
         return Proposal(
             plan=p,
@@ -124,22 +159,29 @@ class FocusAgent:
             source=source,
             session=session.name if session else None,
             thaw=thaw,
+            apps=by_id,
         )
 
-    def _execute(self, proposal: Proposal, snaps: list[AppSnapshot], approved: list[str]) -> Outcome:
+    def _execute(self, proposal: Proposal, approved: list[str]) -> Outcome:
         allowed = [d.app_id for d in proposal.to_freeze]
         approved_set = set(approved) & set(allowed)  # the UI cannot add apps policy refused
-        by_id = {s.app_id: s for s in snaps}
+        # The card may have been open for a while: re-check against a fresh snapshot, so an
+        # app that became foreground, started playing sound or closed is not frozen.
+        by_id = {s.app_id: s for s in self.sensor.snapshot()}
+        ids = [a for a in allowed if a in approved_set]
+        recheck = self.policy([a for a in ids if a in by_id], list(by_id.values()))
+        ok = {a for a in recheck.allowed if a in by_id}
+        skipped = list(recheck.blocked) + [Blocked(a, "unknown_app") for a in ids if a not in by_id]
         frozen, failed = [], []
-        for a in allowed:
-            if a not in approved_set:
+        for a in ids:
+            if a not in ok:
                 continue
             try:  # one app failing must not leave the rest half-done and unreported
                 frozen.append(self.actuator.freeze(by_id[a], proposal.session or ""))
             except Exception:
                 log.exception("freeze failed for %s", a)
                 failed.append(a)
-        return Outcome(proposal=proposal, frozen=frozen, failed=failed,
+        return Outcome(proposal=proposal, frozen=frozen, failed=failed, skipped=skipped,
                        unticked=[a for a in allowed if a not in approved_set])
 
     def _thaw(self, decisions: list[Decision]) -> list[str]:
@@ -159,8 +201,11 @@ class FocusAgent:
 
     # ---- entry points ------------------------------------------------------
 
-    def focus(self, task: str, session_name: str | None = None) -> Outcome:
-        """User: "I'm fixing the login bug" or "start thesis session"."""
+    def focus(self, task: str | None, session_name: str | None = None) -> Outcome:
+        """User: "I'm fixing the login bug", or "start thesis session" (task=None keeps the
+        session's saved task; a task replaces it)."""
+        if not session_name and not (task and task.strip()):
+            raise ValueError("say what you're working on, or name a session")
         session = sessions.start(session_name, task) if session_name else None
         self.session_name = session.name if session else None
         snaps = self.sensor.snapshot()
@@ -174,7 +219,7 @@ class FocusAgent:
         approved = self.consent(proposal)
         if approved is None:
             return Outcome(proposal=proposal, declined=True, thawed=thawed)
-        out = self._execute(proposal, snaps, approved)
+        out = self._execute(proposal, approved)
         out.thawed = thawed
         return out
 
@@ -199,7 +244,7 @@ class FocusAgent:
             approved = self.consent(proposal)
             if approved is None:
                 return Outcome(proposal=proposal, declined=True)
-        return self._execute(proposal, live, approved)
+        return self._execute(proposal, approved)
 
     def done(self) -> list[str]:
         """User: "I'm done". Thaw everything; works even if the planner is down."""
@@ -210,15 +255,16 @@ class FocusAgent:
 # ---- CLI (mock parts) -------------------------------------------------------
 
 def _print_card(p: Proposal) -> None:
-    head = f"Freeze {len(p.to_freeze)} apps, free ~{p.free_mb / 1024:.1f} GB?"
+    n = len(p.to_freeze)
+    head = f"Freeze {n} app{'' if n == 1 else 's'}, free ~{p.free_mb / 1024:.1f} GB?"
     print(f"\n{head}  [{p.plan.model}, ${p.plan.cost_usd:.5f}]")
-    if p.fallback_reason:
-        print(f"  ! AI planner unavailable ({p.fallback_reason}); this is the simple idle rule")
+    if p.fallback_message:
+        print(f"  ! {p.fallback_message}")
     for d in p.to_freeze:
         warn = "  (will disconnect)" if d.app_id in p.disconnects else ""
         print(f"  [x] {d.app_id:24} {d.reason}{warn}")
     for b in p.blocked:
-        print(f"  [blocked] {b.app_id:18} policy: {b.rule}")
+        print(f"  [blocked] {b.app_id:18} {block_reason(b.rule)}")
     for d in p.keep:
         print(f"  keep {d.app_id:23} {d.reason}")
     for r in p.plan.proposed_rules:

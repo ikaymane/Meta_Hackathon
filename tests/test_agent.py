@@ -1,5 +1,9 @@
+from dataclasses import replace
+
+import pytest
+
 from freezer import sessions
-from freezer.agent import FocusAgent
+from freezer.agent import FocusAgent, block_reason
 from freezer.contracts import PressureEvent
 from freezer.mocks import MockActuator, MockSensor, mock_policy
 from tests.test_planner import FakeClient, all_decisions, call, reply
@@ -190,3 +194,39 @@ def test_guardian_skips_the_planner_when_nothing_is_idle():
     agent, actuator, seen, _ = make_agent("login_bug", client)
     out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "code.exe"]))
     assert out.proposal is None and client.requests == [] and seen == []
+
+
+def test_app_that_changed_while_the_card_was_open_is_not_frozen():
+    sensor = MockSensor("login_bug")
+    agent, actuator, seen, _ = make_agent("login_bug", None)
+
+    def consent(p):  # while the card is open, the user switches to Discord
+        sensor._snapshots = [replace(s, is_foreground=s.app_id == "discord.exe") for s in sensor._snapshots]
+        return [d.app_id for d in p.to_freeze]
+    agent.sensor, agent.consent = sensor, consent
+    agent.client = FakeClient(freezing(sensor, {"discord.exe", "steam.exe"}))
+    out = agent.focus("fixing the login bug")
+    assert [e.app_id for e in out.frozen] == ["steam.exe"]
+    assert [(b.app_id, b.rule) for b in out.skipped] == [("discord.exe", "foreground")]
+
+
+def test_card_has_names_sizes_and_plain_words():
+    agent, actuator, seen, _ = make_agent("login_bug", FakeClient(RuntimeError("down")))
+    agent.focus("fixing the login bug")
+    p = seen[0]
+    assert p.apps["steam.exe"].display_name == "Steam" and p.apps["steam.exe"].working_set_mb == 620
+    assert p.fallback_message.startswith("Simple mode:") and "RuntimeError" not in p.fallback_message
+    assert block_reason("plays_audio") == "Playing sound" and block_reason("new_rule") == "Protected by a safety rule"
+
+
+def test_start_session_keeps_the_saved_task():
+    sensor = MockSensor("thesis")
+    client = FakeClient(freezing(sensor, {"steam.exe"}), freezing(sensor, {"steam.exe"}, 1))
+    agent, *_ = make_agent("thesis", client)
+    agent.focus("writing my thesis", "thesis")
+    agent.done()
+    agent.focus(None, "thesis")  # D: "start thesis session"
+    assert sessions.get("thesis").task == "writing my thesis"
+    assert "writing my thesis" in client.requests[1]["messages"][1]["content"]
+    with pytest.raises(ValueError):
+        agent.focus("   ")
