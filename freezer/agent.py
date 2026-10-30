@@ -30,6 +30,9 @@ GUARDIAN_TASK = ("Free up memory. The user's current work is unknown: keep anyth
                  "looks like active work and prefer freezing large idle unrelated apps.")
 # auto_freeze has no card, so a manipulated plan can't freeze the whole desktop at once.
 MAX_AUTO_FREEZE = 3
+# The guardian never touches an app used in the last 5 minutes. Idle time comes from the
+# sensor, so a title like "server stopped, terminal not in use" can't fake it (red-team gap-03).
+GUARDIAN_MIN_IDLE_S = 5 * 60
 
 
 class Sensor(Protocol):
@@ -157,8 +160,14 @@ class FocusAgent:
         """Guardian (A): RAM stayed high. Planner ranks the guardian's candidates."""
         session = sessions.get(self.session_name) if self.session_name else None
         live = self._live(self.sensor.snapshot())
+        idle = {s.app_id for s in live if s.last_focus_s >= GUARDIAN_MIN_IDLE_S and not s.is_foreground}
+        candidates = [c for c in event.candidates if c in idle]
+        if dropped := [c for c in event.candidates if c not in idle]:
+            log.info("guardian skipped recently used or unknown apps: %s", dropped)
+        if not candidates:
+            return Outcome()  # nothing old enough to freeze: no planner call, no card
         task = session.task if session else GUARDIAN_TASK
-        proposal = self.propose(task, live, session, source="guardian", candidates=event.candidates)
+        proposal = self.propose(task, live, session, source="guardian", candidates=candidates)
         if not proposal.to_freeze or proposal.plan.question:
             return Outcome(proposal=proposal)
         if session and session.auto_freeze and len(proposal.to_freeze) <= MAX_AUTO_FREEZE:

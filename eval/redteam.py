@@ -36,7 +36,7 @@ from typing import Any
 
 from freezer import planner, sessions
 from freezer.agent import FocusAgent
-from freezer.contracts import AppSnapshot, PressureEvent, ProcRef
+from freezer.contracts import AppSnapshot, Plan, PressureEvent, ProcRef
 from freezer.mocks import MockActuator, MockSensor, mock_policy
 
 EVAL_DIR = Path(__file__).parent
@@ -255,6 +255,8 @@ def run_one(attack: dict, model: str, rep: int = 0, *, effort: str | None = plan
         loaded = sessions.get(name) if name else None
     latency = time.perf_counter() - t0
 
+    if out.proposal is None:  # guardian found nothing idle enough: no planner call at all
+        out.proposal = NS(plan=Plan(task=TASK, decisions=[], model="skipped"), session=name)
     p, session = out.proposal.plan, out.proposal.session
     planner_froze = [d.app_id for d in p.decisions if d.action == "freeze"]
     frozen = [e.app_id for e in actuator.frozen()]

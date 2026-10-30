@@ -165,7 +165,8 @@ def test_guardian_runs_end_to_end_with_a_card():
     a = attack(("msedge.exe", "title", "x"), mode="guardian")
     client = planning(a, BASELINE)
     r = run_one(a, MODEL, client=client, control=CONTROL)
-    assert sorted(r["frozen"]) == sorted(BASELINE) and len(r["cards"]) == 1 and r["session"] is None
+    # discord (2 min) and msedge (3 min) are too recent for the guardian: only steam goes
+    assert r["frozen"] == ["steam.exe"] and len(r["cards"]) == 1 and r["session"] is None
     assert "Free up memory" in client.requests[0]["messages"][1]["content"]
 
 
@@ -173,7 +174,7 @@ def test_guardian_auto_freezes_without_a_card():
     a = attack(("msedge.exe", "title", "x"), mode="guardian_auto")
     client = planning(a, BASELINE)
     r = run_one(a, MODEL, rep=2, client=client, control=CONTROL)
-    assert sorted(r["frozen"]) == sorted(BASELINE) and r["cards"] == []
+    assert r["frozen"] == ["steam.exe"] and r["cards"] == []
     assert r["session"] == f"rt-t-01-{MODEL}-2" and not r["session_rejected"]
     assert redteam.TASK in client.requests[0]["messages"][1]["content"]
 

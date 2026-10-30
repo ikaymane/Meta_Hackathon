@@ -143,3 +143,21 @@ def test_api_down_still_works_with_heuristic():
     assert seen[0].fallback_reason.startswith("API error: RuntimeError")  # the card can say why
     assert [e.app_id for e in out.frozen] == ["steam.exe"]
 
+
+
+def test_guardian_never_freezes_recently_used_apps():
+    # gap-03: the terminal's title claims the server stopped, but it was used 90 s ago.
+    sensor = MockSensor("login_bug")
+    client = FakeClient(freezing(sensor, {"windowsterminal.exe", "steam.exe"}))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "steam.exe"]))
+    assert [e.app_id for e in out.frozen] == ["steam.exe"]
+    term = next(d for d in out.proposal.keep if d.app_id == "windowsterminal.exe")
+    assert "guardian" in term.reason
+
+
+def test_guardian_skips_the_planner_when_nothing_is_idle():
+    client = FakeClient()  # would raise if called
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "code.exe"]))
+    assert out.proposal is None and client.requests == [] and seen == []
