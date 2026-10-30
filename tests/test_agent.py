@@ -92,22 +92,26 @@ def test_pressure_asks_consent_and_sticks_to_candidates():
 
 def test_pressure_with_auto_freeze_skips_card():
     sensor = MockSensor("thesis")
-    # The model also wants zotero, which the guardian did not suggest: it must stay out.
-    client = FakeClient(freezing(sensor, set()), freezing(sensor, {"steam.exe", "zotero.exe"}, 1))
+    cands = [s for s in sensor.snapshot() if s.app_id in {"steam.exe", "ms-teams.exe"}]
+    # The planner only ranks the guardian's candidates: zotero is never shown to the
+    # model, so it stays out without needing a keep entry on the card.
+    client = FakeClient(freezing(sensor, set()),
+                        reply(call("freeze_apps", all_decisions(cands, {"steam.exe"}), 1)))
     agent, actuator, seen, _ = make_agent("thesis", client)
     agent.focus("writing my thesis", "thesis")
     sessions.set_auto_freeze("thesis", True)
     out = agent.on_pressure(PressureEvent(ram_pct=92, sustained_s=30, candidates=["steam.exe", "ms-teams.exe"]))
     assert [e.app_id for e in out.frozen] == ["steam.exe"] and seen == []
-    zotero = next(d for d in out.proposal.keep if d.app_id == "zotero.exe")
-    assert zotero.action == "keep" and "guardian" in zotero.reason
+    assert "zotero.exe" not in [d.app_id for d in out.proposal.plan.decisions]
 
 
 def test_auto_freeze_over_the_limit_asks_first(monkeypatch):
     from freezer import agent as agent_mod
     monkeypatch.setattr(agent_mod, "MAX_AUTO_FREEZE", 1)
     sensor = MockSensor("thesis")
-    client = FakeClient(freezing(sensor, set()), freezing(sensor, {"steam.exe", "ms-teams.exe"}, 1))
+    cands = [s for s in sensor.snapshot() if s.app_id in {"steam.exe", "ms-teams.exe"}]
+    client = FakeClient(freezing(sensor, set()),
+                        reply(call("freeze_apps", all_decisions(cands, {"steam.exe", "ms-teams.exe"}), 1)))
     agent, actuator, seen, _ = make_agent("thesis", client)
     agent.focus("writing my thesis", "thesis")
     sessions.set_auto_freeze("thesis", True)
@@ -180,13 +184,14 @@ def test_api_down_still_works_with_heuristic():
 
 def test_guardian_never_freezes_recently_used_apps():
     # gap-03: the terminal's title claims the server stopped, but it was used 90 s ago.
+    # It is no candidate, so the planner never sees it: absence, not a keep entry.
     sensor = MockSensor("login_bug")
-    client = FakeClient(freezing(sensor, {"windowsterminal.exe", "steam.exe"}))
+    cands = [s for s in sensor.snapshot() if s.app_id in {"steam.exe"}]
+    client = FakeClient(reply(call("freeze_apps", all_decisions(cands, {"steam.exe"}))))
     agent, actuator, seen, _ = make_agent("login_bug", client)
     out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "steam.exe"]))
     assert [e.app_id for e in out.frozen] == ["steam.exe"]
-    term = next(d for d in out.proposal.keep if d.app_id == "windowsterminal.exe")
-    assert "guardian" in term.reason
+    assert "windowsterminal.exe" not in [d.app_id for d in out.proposal.plan.decisions]
 
 
 def test_guardian_skips_the_planner_when_nothing_is_idle():
@@ -230,3 +235,31 @@ def test_start_session_keeps_the_saved_task():
     assert "writing my thesis" in client.requests[1]["messages"][1]["content"]
     with pytest.raises(ValueError):
         agent.focus("   ")
+
+
+def test_guardian_planner_sees_only_candidates():
+    # gap-03: lying titles on apps the guardian did not pick must not reach the model.
+    sensor = MockSensor("login_bug")
+    cands = [s for s in sensor.snapshot() if s.app_id in {"steam.exe"}]
+    client = FakeClient(reply(call("freeze_apps", all_decisions(cands, {"steam.exe"}))))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    out = agent.on_pressure(PressureEvent(95, 60, candidates=["steam.exe"]))
+    content = client.requests[0]["messages"][1]["content"]
+    assert "steam.exe" in content
+    assert "windowsterminal.exe" not in content and "discord.exe" not in content
+    assert [e.app_id for e in out.frozen] == ["steam.exe"]
+
+
+def test_gap03_auto_freeze_never_touches_terminal():
+    # Terminal idle 90 s with a lying title is no candidate; with auto_freeze on no
+    # card is shown, yet the terminal stays safe while steam still freezes.
+    sensor = MockSensor("login_bug")
+    cands = [s for s in sensor.snapshot() if s.app_id in {"steam.exe"}]
+    client = FakeClient(freezing(sensor, set()),
+                        reply(call("freeze_apps", all_decisions(cands, {"steam.exe"}), 1)))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    agent.focus("fixing the login bug", "gap03")
+    sessions.set_auto_freeze("gap03", True)
+    out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "steam.exe"]))
+    assert [e.app_id for e in out.frozen] == ["steam.exe"] and seen == []
+    assert "windowsterminal.exe" not in [d.app_id for d in out.proposal.plan.decisions]

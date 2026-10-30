@@ -235,7 +235,13 @@ class FocusAgent:
             # No planner call, no card. Demo tip: open the distractions 5+ min beforehand.
             return Outcome(note=f"guardian skipped: no candidate idle for {GUARDIAN_MIN_IDLE_S // 60}+ min")
         task = session.task if session else GUARDIAN_TASK
-        proposal = self.propose(task, live, session, source="guardian", candidates=candidates)
+        # The planner ranks ONLY the guardian's candidates. Non-candidate titles
+        # never reach the model, so a lying title on an app the guardian did not
+        # pick (red-team gap-03) cannot steer the plan. Candidates themselves come
+        # from sensor idle seconds, never from text. Policy + freeze-time re-check
+        # still apply to the result.
+        plan_snaps = [s for s in live if s.app_id in set(candidates)]
+        proposal = self.propose(task, plan_snaps, session, source="guardian", candidates=candidates)
         if not proposal.to_freeze or proposal.plan.question:
             return Outcome(proposal=proposal)
         if session and session.auto_freeze and len(proposal.to_freeze) <= MAX_AUTO_FREEZE:
