@@ -43,11 +43,20 @@ class Decision:
 
 
 @dataclass
+class RuleProposal:
+    app_id: str
+    rule: Literal["keep", "never_freeze"]
+    reason: str                 # shown to user; saved ONLY if the user clicks
+
+
+@dataclass
 class Plan:
     task: str                   # user's sentence, e.g. "fixing the login bug"
     decisions: list[Decision]
     model: str                  # which Muse model produced it, or "heuristic"
     cost_usd: float = 0.0
+    question: str | None = None  # set when the model asks the user instead of deciding
+    proposed_rules: list[RuleProposal] = field(default_factory=list)
 
 
 # ---- Policy (owner: B) -----------------------------------------------------

@@ -1,0 +1,83 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "freeze_apps",
+      "description": "Submit the plan: one keep/freeze decision for every app in the snapshot. Only freeze-decisions are acted on, after the user confirms.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "app_id": {"type": "string", "description": "app_id from the snapshot"},
+                "action": {"type": "string", "enum": ["keep", "freeze"]},
+                "reason": {"type": "string", "description": "One short line shown to the user"}
+              },
+              "required": ["app_id", "action", "reason"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["decisions"],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "thaw_apps",
+      "description": "Bring frozen apps back because the task needs them again.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app_ids": {"type": "array", "items": {"type": "string"}},
+          "reason": {"type": "string"}
+        },
+        "required": ["app_ids", "reason"],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_apps",
+      "description": "Return the current app snapshot again.",
+      "parameters": {"type": "object", "properties": {}, "additionalProperties": false}
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "ask_user",
+      "description": "Ask the user one short question when the task is too vague to decide.",
+      "parameters": {
+        "type": "object",
+        "properties": {"question": {"type": "string"}},
+        "required": ["question"],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "remember_rule",
+      "description": "Propose a rule for the current focus session. It is only saved if the user confirms it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "app_id": {"type": "string"},
+          "rule": {"type": "string", "enum": ["keep", "never_freeze"]},
+          "reason": {"type": "string"}
+        },
+        "required": ["app_id", "rule", "reason"],
+        "additionalProperties": false
+      }
+    }
+  }
+]
