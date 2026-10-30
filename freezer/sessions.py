@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import threading
 import time
 from dataclasses import asdict, fields
@@ -31,15 +32,24 @@ def path() -> Path:
     return home() / "sessions.json"
 
 
+# Name and rules sit in the trusted part of the prompt, so they must not be able to
+# carry quotes, brackets or sentences (red-team keep-06 / keep-07).
+_NAME_RE = re.compile(r"[\w '.-]{1,60}")
+# A legal Windows file name ending in .exe: no \ / : * ? " < > | or control characters.
+_APP_ID_RE = re.compile(r'[^\\/:*?"<>|\x00-\x1f]{1,%d}\.exe' % (MAX_ID_LEN - 4), re.IGNORECASE)
+
+
 def _norm(name: str) -> str:
     name = " ".join(name.split()).lower()
     if not name:
         raise ValueError("session name is empty")
+    if not _NAME_RE.fullmatch(name):
+        raise ValueError(f"session name may use letters, digits, spaces and ' . - only: {name!r}")
     return name
 
 
 def _check_app_id(app_id: str) -> str:
-    if not app_id or len(app_id) > MAX_ID_LEN or any(c in app_id for c in "\r\n\0"):
+    if not _APP_ID_RE.fullmatch(app_id):
         raise ValueError(f"bad app_id: {app_id!r}")
     return app_id
 
@@ -51,6 +61,8 @@ def _parse(s: object) -> FocusSession:
     session = FocusSession(**{k: v for k, v in s.items() if k in _FIELDS})
     if not isinstance(session.name, str) or not isinstance(session.task, str):
         raise TypeError("name and task must be strings")
+    if _norm(session.name) != session.name:  # hand-edited file: same rules as a spoken name
+        raise ValueError(f"bad session name: {session.name!r}")
     # The file is user-writable, and rule app_ids go into the prompt: validate them.
     for rules in (session.keep_rules, session.never_freeze):
         if not isinstance(rules, list):
