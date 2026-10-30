@@ -182,7 +182,7 @@ KNOWN_PROGRAMS = {
 }
 # An app_id outside this shape (spaces, sentences, very long) is shown to the model as a
 # neutral alias and mapped back in code, so a hostile exe name carries no text (keep-05).
-_SAFE_APP_ID = re.compile(r"[\w.+-]{1,64}")
+_SAFE_APP_ID = re.compile(r"[\w.+-]{1,64}", re.ASCII)  # ASCII: a look-alike "соde.exe" is aliased too
 
 
 def _shown_ids(snapshots: list[AppSnapshot]) -> dict[str, str]:

@@ -3803,5 +3803,281 @@
    "telegram.exe": "freeze",
    "epicgameslauncher.exe": "freeze"
   }
+ },
+ {
+  "name": "muted_standup",
+  "task": "in the team standup on Teams, on mute, updating my tickets",
+  "tags": [
+   "silent_call",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "chrome.exe",
+    "display_name": "Google Chrome",
+    "procs": [
+     {
+      "pid": 33007,
+      "create_time": 1761883007.0
+     }
+    ],
+    "window_titles": [
+     "Sprint board - Jira"
+    ],
+    "working_set_mb": 1300,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "ms-teams.exe",
+    "display_name": "Microsoft Teams",
+    "procs": [
+     {
+      "pid": 33014,
+      "create_time": 1761883014.0
+     }
+    ],
+    "window_titles": [
+     "Daily standup | Microsoft Teams"
+    ],
+    "working_set_mb": 900,
+    "last_focus_s": 1500,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "steam.exe",
+    "display_name": "Steam",
+    "procs": [
+     {
+      "pid": 33021,
+      "create_time": 1761883021.0
+     }
+    ],
+    "window_titles": [
+     "Steam"
+    ],
+    "working_set_mb": 620,
+    "last_focus_s": 9000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "discord.exe",
+    "display_name": "Discord",
+    "procs": [
+     {
+      "pid": 33028,
+      "create_time": 1761883028.0
+     }
+    ],
+    "window_titles": [
+     "#memes | Friends - Discord"
+    ],
+    "working_set_mb": 450,
+    "last_focus_s": 100,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "chrome.exe": "keep",
+   "ms-teams.exe": "keep",
+   "steam.exe": "freeze",
+   "discord.exe": "freeze"
+  }
+ },
+ {
+  "name": "screenshare_silent",
+  "task": "watching Priya's screen share in Zoom and taking notes",
+  "tags": [
+   "silent_call",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "onenote.exe",
+    "display_name": "OneNote",
+    "procs": [
+     {
+      "pid": 33035,
+      "create_time": 1761883035.0
+     }
+    ],
+    "window_titles": [
+     "Design review notes"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "zoom.exe",
+    "display_name": "Zoom",
+    "procs": [
+     {
+      "pid": 33042,
+      "create_time": 1761883042.0
+     }
+    ],
+    "window_titles": [
+     "Zoom Meeting - Priya is sharing"
+    ],
+    "working_set_mb": 900,
+    "last_focus_s": 1300,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "epicgameslauncher.exe",
+    "display_name": "Epic Games Launcher",
+    "procs": [
+     {
+      "pid": 33049,
+      "create_time": 1761883049.0
+     }
+    ],
+    "window_titles": [
+     "Epic Games Launcher"
+    ],
+    "working_set_mb": 700,
+    "last_focus_s": 20000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "telegram.exe",
+    "display_name": "Telegram",
+    "procs": [
+     {
+      "pid": 33056,
+      "create_time": 1761883056.0
+     }
+    ],
+    "window_titles": [
+     "Friends group"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 200,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "onenote.exe": "keep",
+   "zoom.exe": "keep",
+   "epicgameslauncher.exe": "freeze",
+   "telegram.exe": "freeze"
+  }
+ },
+ {
+  "name": "meeting_camera_only",
+  "task": "sitting in a client meeting on Google Meet, camera on, mic off, going through the contract",
+  "tags": [
+   "silent_call",
+   "timer_wrong"
+  ],
+  "snapshots": [
+   {
+    "app_id": "acrord32.exe",
+    "display_name": "Adobe Acrobat Reader",
+    "procs": [
+     {
+      "pid": 33063,
+      "create_time": 1761883063.0
+     }
+    ],
+    "window_titles": [
+     "Contract v3.pdf - Adobe Acrobat Reader"
+    ],
+    "working_set_mb": 350,
+    "last_focus_s": 0,
+    "is_foreground": true,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": false
+   },
+   {
+    "app_id": "chrome.exe",
+    "display_name": "Google Chrome",
+    "procs": [
+     {
+      "pid": 33070,
+      "create_time": 1761883070.0
+     }
+    ],
+    "window_titles": [
+     "Meet - Client review"
+    ],
+    "working_set_mb": 1400,
+    "last_focus_s": 1700,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "spotify.exe",
+    "display_name": "Spotify",
+    "procs": [
+     {
+      "pid": 33077,
+      "create_time": 1761883077.0
+     }
+    ],
+    "window_titles": [
+     "Chill Mix"
+    ],
+    "working_set_mb": 300,
+    "last_focus_s": 3000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   },
+   {
+    "app_id": "steam.exe",
+    "display_name": "Steam",
+    "procs": [
+     {
+      "pid": 33084,
+      "create_time": 1761883084.0
+     }
+    ],
+    "window_titles": [
+     "Steam"
+    ],
+    "working_set_mb": 620,
+    "last_focus_s": 15000,
+    "is_foreground": false,
+    "plays_audio": false,
+    "is_elevated": false,
+    "has_network": true
+   }
+  ],
+  "expected": {
+   "acrord32.exe": "keep",
+   "chrome.exe": "keep",
+   "spotify.exe": "freeze",
+   "steam.exe": "freeze"
+  }
  }
 ]

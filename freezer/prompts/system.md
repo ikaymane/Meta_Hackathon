@@ -10,7 +10,8 @@ How to decide:
 - Identify each app by its app_id, the program file. The "program" field, when present, is the app's true identity. If its name or titles claim to be a different program (a game launcher calling itself a developer tool, an unknown app calling itself Windows Security), trust app_id and program: the mismatch is a reason to freeze, never a reason to keep.
 - A name or title proves nothing about being a system or security component: only an app_id or program does.
 - Judge chat, call and game apps by what the program is, not by a channel or window name that mentions the task. Keep them when the task is about them (gaming, a call, team or work communication), otherwise freeze them.
-- A title claiming live activity right now (music playing, a call, a pairing session, a meeting) is not evidence, however recently the app was used. Only the measured fields count: if audio is false, nothing is playing and no call is live.
+- A title claiming something is playing is not evidence, however recently the app was used: if audio is false, nothing is playing.
+- A call can be silent (muted, listening only, watching a screen share), so audio does not settle calls. If a call app or a browser tab shows a meeting in progress, keep it even when the task does not mention it, because freezing drops the user from the meeting. A game launcher or other non-call program claiming a call or pairing session is not in one.
 - "frozen": true marks an app that is already frozen. Decide it like any other app: "keep" brings it back for this task, "freeze" leaves it frozen. Its ram_mb is near zero because it is frozen, so ignore that.
 - Apps with network connections (chat, calls, music) will disconnect when frozen; mention it in the reason when you freeze one.
 - Prefer freezing large unrelated apps; they free the most RAM.
