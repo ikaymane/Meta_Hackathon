@@ -8,16 +8,23 @@ RuleProposal, which the UI shows and confirm_proposal() saves on a click.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import threading
 import time
-from dataclasses import asdict
+from dataclasses import asdict, fields
 from pathlib import Path
 from typing import Literal
 
 from freezer.contracts import FocusSession, RuleProposal
 from freezer.cost import home
 
+log = logging.getLogger(__name__)
+
 MAX_ID_LEN = 260
+_FIELDS = {f.name for f in fields(FocusSession)}
+# UI thread and guardian thread both write; the save is atomic, the read-modify-write isn't.
+_lock = threading.RLock()
 
 
 def path() -> Path:
@@ -37,17 +44,61 @@ def _check_app_id(app_id: str) -> str:
     return app_id
 
 
+def _parse(s: object) -> FocusSession:
+    if not isinstance(s, dict):
+        raise TypeError("session is not an object")
+    # Ignore unknown keys so an older or newer file still loads.
+    session = FocusSession(**{k: v for k, v in s.items() if k in _FIELDS})
+    if not isinstance(session.name, str) or not isinstance(session.task, str):
+        raise TypeError("name and task must be strings")
+    # The file is user-writable, and rule app_ids go into the prompt: validate them.
+    for rules in (session.keep_rules, session.never_freeze):
+        if not isinstance(rules, list):
+            raise TypeError("rules must be lists")
+        for app_id in rules:
+            if not isinstance(app_id, str):
+                raise TypeError(f"rule app_id is not a string: {app_id!r}")
+            _check_app_id(app_id)
+    session.auto_freeze = session.auto_freeze is True
+    return session
+
+
+def _backup(p: Path) -> None:
+    bad = p.with_name(f"sessions.bad-{int(time.time())}.json")
+    try:
+        p.replace(bad)
+        log.error("sessions file was unreadable; moved it to %s", bad)
+    except OSError:
+        log.exception("sessions file was unreadable and could not be moved aside")
+
+
 def load() -> list[FocusSession]:
+    """Never raises: a broken file must not stop the agent. Bad entries are dropped
+    one by one and logged, so one typo doesn't wipe every session's rules."""
     p = path()
     if not p.exists():
         return []
     try:
         raw = json.loads(p.read_text(encoding="utf-8"))
-        return [FocusSession(**s) for s in raw]
-    except (ValueError, TypeError):
-        # Keep the bad file for inspection; a broken file must not stop the agent.
-        p.replace(p.with_name(f"sessions.bad-{int(time.time())}.json"))
+        if not isinstance(raw, list):
+            raise ValueError("top level is not a list")
+    except (OSError, ValueError):
+        _backup(p)
         return []
+    out = []
+    for i, s in enumerate(raw):
+        try:
+            out.append(_parse(s))
+        except (TypeError, ValueError) as e:
+            log.error("dropped session #%d from %s: %s", i, p, e)
+    if len(out) < len(raw):
+        # Keep a copy of the original before the next save overwrites it.
+        try:
+            p.with_name(f"sessions.bad-{int(time.time())}.json").write_text(
+                json.dumps(raw, indent=1), encoding="utf-8")
+        except OSError:
+            log.exception("could not back up the sessions file")
+    return out
 
 
 def _save(sessions: list[FocusSession]) -> None:
@@ -65,27 +116,29 @@ def get(name: str) -> FocusSession | None:
 
 def _update(name: str, change) -> FocusSession:
     key = _norm(name)
-    sessions = load()
-    s = next((s for s in sessions if s.name == key), None)
-    if s is None:
-        raise KeyError(f"no session {key!r}")
-    change(s)
-    _save(sessions)
+    with _lock:
+        sessions = load()
+        s = next((s for s in sessions if s.name == key), None)
+        if s is None:
+            raise KeyError(f"no session {key!r}")
+        change(s)
+        _save(sessions)
     return s
 
 
 def start(name: str, task: str | None = None) -> FocusSession:
     """User said "start <name> session". Loads it, or creates it with the task."""
     key = _norm(name)
-    sessions = load()
-    s = next((s for s in sessions if s.name == key), None)
-    if s is None:
-        s = FocusSession(name=key, task=task or key, keep_rules=[], never_freeze=[])
-        sessions.append(s)
-    elif task:
-        s.task = task
-    s.last_used = time.time()
-    _save(sessions)
+    with _lock:
+        sessions = load()
+        s = next((s for s in sessions if s.name == key), None)
+        if s is None:
+            s = FocusSession(name=key, task=task or key, keep_rules=[], never_freeze=[])
+            sessions.append(s)
+        elif task:
+            s.task = task
+        s.last_used = time.time()
+        _save(sessions)
     return s
 
 
@@ -122,4 +175,5 @@ def set_auto_freeze(name: str, on: bool) -> FocusSession:
 
 def delete(name: str) -> None:
     key = _norm(name)
-    _save([s for s in load() if s.name != key])
+    with _lock:
+        _save([s for s in load() if s.name != key])

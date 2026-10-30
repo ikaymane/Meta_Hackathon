@@ -17,9 +17,11 @@ content for product improvement, whatever the model.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import time
+import unicodedata
 from pathlib import Path
 from typing import Any, Callable, Literal
 
@@ -27,6 +29,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from freezer import cost
 from freezer.contracts import AppSnapshot, Decision, FocusSession, Plan, RuleProposal
+
+log = logging.getLogger(__name__)
 
 API_BASE = os.environ.get("FF_API_BASE", "https://api.meta.ai/v1")
 DEFAULT_MODEL = "muse-spark-1.3"
@@ -52,11 +56,18 @@ TOOLS: list[dict[str, Any]] = json.loads((_PROMPTS / "tools.json").read_text(enc
 
 try:
     from freezer.redact import redact  # B owns this
-except ImportError:
+    REDACTOR = "freezer.redact"
+except ModuleNotFoundError as e:
+    if e.name != "freezer.redact":
+        raise  # B's module exists but is broken: fail loudly, don't downgrade privacy
     # Stopgap until B's redact() lands: strip the obvious private bits.
+    REDACTOR = "stopgap"
+    log.warning("freezer.redact missing: using the stopgap redactor (emails, paths, long numbers only)")
     _REDACTIONS = [
         (re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+"), "<email>"),
-        (re.compile(r"[A-Za-z]:\\[^\s\"<>|]*"), "<path>"),
+        # Spaces included ("C:\Users\John Smith\a.docx"), up to the " - App" title separator
+        (re.compile(r"[A-Za-z]:\\[^\"<>|\r\n]*?(?=\s+[-–—|]\s|$)"), "<path>"),
+        (re.compile(r"https?://\S+"), "<url>"),
         (re.compile(r"\b\d{5,}\b"), "<number>"),
     ]
 
@@ -64,6 +75,12 @@ except ImportError:
         for pattern, repl in _REDACTIONS:
             text = pattern.sub(repl, text)
         return text
+
+
+def sanitize(text: str) -> str:
+    """Drop control and format characters (zero-width, bidi overrides, Unicode tag
+    characters): invisible to the user, readable by the model."""
+    return "".join(c for c in text if unicodedata.category(c) not in ("Cc", "Cf") or c in " \t")
 
 
 # ---- Output schema ---------------------------------------------------------
@@ -81,15 +98,18 @@ class _FreezeAppsArgs(BaseModel):
 
 
 class _ThawAppsArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     app_ids: list[str] = Field(min_length=1)
     reason: str = ""
 
 
 class _AskUserArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     question: str = Field(min_length=1)
 
 
 class _RememberRuleArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     app_id: str
     rule: Literal["keep", "never_freeze"]
     reason: str = ""
@@ -101,12 +121,16 @@ class PlanRejected(ValueError):
 
 # ---- Prompt building -------------------------------------------------------
 
+def _untrusted(text: str) -> str:
+    return redact(sanitize(text))[:MAX_TITLE_CHARS]
+
+
 def _snapshot_json(snapshots: list[AppSnapshot]) -> str:
     apps = [
         {
-            "app_id": s.app_id,
-            "name": s.display_name,
-            "titles": [redact(t)[:MAX_TITLE_CHARS] for t in s.window_titles[:MAX_TITLES]],
+            "app_id": s.app_id,  # not redacted: the model must echo it back exactly
+            "name": _untrusted(s.display_name),
+            "titles": [_untrusted(t) for t in s.window_titles[:MAX_TITLES]],
             "ram_mb": round(s.working_set_mb),
             "idle_min": round(s.last_focus_s / 60, 1),
             "foreground": s.is_foreground,
@@ -136,7 +160,7 @@ def build_user_message(task: str, snapshots: list[AppSnapshot], session: FocusSe
 # ---- Validation ------------------------------------------------------------
 
 def _clean_reason(reason: str) -> str:
-    return " ".join(reason.split())[:MAX_REASON_CHARS]
+    return " ".join(sanitize(reason).split())[:MAX_REASON_CHARS]
 
 
 def _validate_decisions(raw: list[_DecisionArgs], snapshots: list[AppSnapshot]) -> list[Decision]:
@@ -188,10 +212,18 @@ def make_client():
     return OpenAI(base_url=API_BASE, api_key=os.environ["MODEL_API_KEY"], timeout=30)
 
 
+# Charged when the API omits usage, so a missing field can't make calls free and dodge the cap.
+# Generous on purpose: ~3k prompt tokens and up to ~2k of hidden reasoning per call.
+_EST_PROMPT_TOKENS = 4000
+_EST_COMPLETION_TOKENS = 3000
+
+
 def _record_usage(model: str, resp: Any, latency_s: float) -> float:
     usage = getattr(resp, "usage", None)
     if usage is None:
-        return 0.0
+        log.warning("response has no usage; charging an estimate of %d+%d tokens",
+                    _EST_PROMPT_TOKENS, _EST_COMPLETION_TOKENS)
+        return cost.record(model, _EST_PROMPT_TOKENS, _EST_COMPLETION_TOKENS, 0, latency_s)
     details = getattr(usage, "prompt_tokens_details", None)
     cached = getattr(details, "cached_tokens", 0) or 0
     return cost.record(model, usage.prompt_tokens or 0, usage.completion_tokens or 0, cached, latency_s)
@@ -207,41 +239,60 @@ def plan(
     client: Any = None,
     on_fallback: Callable[[str], None] | None = None,
 ) -> Plan:
-    """Ask Muse Spark for a keep/freeze plan. Never raises: falls back to heuristic_plan."""
+    """Ask Muse Spark for a keep/freeze plan. Never raises: falls back to heuristic_plan.
 
-    def fallback(why: str, spent: float) -> Plan:
+    Every fallback is logged, passed to on_fallback, and recorded in Plan.fallback_reason
+    so the consent card can say the plan came from the simple rule, not the AI.
+    """
+    spent = [0.0]  # boxed so the crash path below still reports what was billed
+
+    def fallback(why: str) -> Plan:
+        log.warning("planner fallback: %s", why)
         if on_fallback:
             on_fallback(why)
         p = heuristic_plan(task, snapshots, session)
-        p.cost_usd = spent
+        p.cost_usd = spent[0]
+        p.fallback_reason = why
         return p
 
     if not snapshots:
         return Plan(task=task, decisions=[], model="heuristic")
+    try:
+        return _plan(task, snapshots, session, model, reasoning_effort, client, fallback, spent)
+    except Exception as e:  # a bug or odd response must cost a heuristic plan, not the agent
+        log.exception("planner crashed")
+        return fallback(f"planner error: {type(e).__name__}: {e}")
 
+
+def _plan(task: str, snapshots: list[AppSnapshot], session: FocusSession | None, model: str,
+          reasoning_effort: str | None, client: Any, fallback: Callable[[str], Plan],
+          spent: list[float]) -> Plan:
     try:
         client = client or make_client()
     except Exception as e:  # missing key, bad config
-        return fallback(f"no API client: {e}", 0.0)
+        return fallback(f"no API client: {type(e).__name__}: {e}")
 
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": build_user_message(task, snapshots, session)},
     ]
-    spent = 0.0
     bad_answers = 0
     # Latency is ~all output tokens, mostly hidden reasoning; lower effort = faster.
     extra = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
 
     for _ in range(MAX_TURNS):
+        if not cost.usage_log_ok():
+            return fallback("can't write the usage log, so spend can't be capped: using the simple rule")
         if cost.over_cap():
-            return fallback(f"spend cap ${cost.cap_usd():.2f} reached, using the simple rule", spent)
+            return fallback(f"spend cap ${cost.cap_usd():.2f} reached, using the simple rule")
         t0 = time.perf_counter()
         try:
             resp = client.chat.completions.create(model=model, messages=messages, tools=TOOLS, **extra)
         except Exception as e:
-            return fallback(f"API error: {e}", spent)
-        spent += _record_usage(model, resp, time.perf_counter() - t0)
+            return fallback(f"API error: {type(e).__name__}: {e}")
+        spent[0] += _record_usage(model, resp, time.perf_counter() - t0)
+        if not resp.choices:
+            return fallback("API returned no choices")
         msg = resp.choices[0].message
         calls = msg.tool_calls or []
 
@@ -249,7 +300,7 @@ def plan(
             # tool_choice only supports "auto", so the model may answer in prose.
             bad_answers += 1
             if bad_answers >= MAX_BAD_ANSWERS:
-                return fallback("model did not call a tool", spent)
+                return fallback("model did not call a tool")
             messages.append({"role": "assistant", "content": msg.content or ""})
             messages.append({"role": "user", "content": "Answer by calling the freeze_apps tool."})
             continue
@@ -288,6 +339,9 @@ def plan(
                     a = _RememberRuleArgs(**args)
                     if a.app_id in {s.app_id for s in snapshots}:
                         proposals.append(RuleProposal(a.app_id, a.rule, _clean_reason(a.reason)))
+                    else:
+                        result = "ignored: app_id not in the snapshot"
+                        log.info("dropped remember_rule for unknown app_id %r", a.app_id)
                 elif name == "list_apps":
                     result = f"<snapshot>\n{_snapshot_json(snapshots)}\n</snapshot>"
                 else:
@@ -299,12 +353,13 @@ def plan(
 
         if errors:
             bad_answers += 1
+            log.info("planner answer rejected (%d/%d): %s", bad_answers, MAX_BAD_ANSWERS, errors)
             if bad_answers >= MAX_BAD_ANSWERS:
-                return fallback("; ".join(errors), spent)
+                return fallback("; ".join(errors))
             continue
 
-        if question and decisions is None:
-            return Plan(task=task, decisions=[], model=model, cost_usd=spent,
+        if question and decisions is None and not thawed:
+            return Plan(task=task, decisions=[], model=model, cost_usd=spent[0],
                         question=question, proposed_rules=proposals)
 
         if decisions is not None or thawed:
@@ -313,10 +368,10 @@ def plan(
             thaw_ids = {d.app_id: d for d in thawed}
             decisions = [thaw_ids.get(d.app_id, d) for d in decisions]
             return Plan(task=task, decisions=_apply_session_rules(decisions, session),
-                        model=model, cost_usd=spent, question=question, proposed_rules=proposals)
+                        model=model, cost_usd=spent[0], question=question, proposed_rules=proposals)
         # Only list_apps / remember_rule so far: let the model continue.
 
-    return fallback("too many turns without a plan", spent)
+    return fallback("too many turns without a plan")
 
 
 # ---- CLI -------------------------------------------------------------------

@@ -77,6 +77,9 @@ def main() -> None:
     scenarios = json.loads(Path(args.scenarios).read_text(encoding="utf-8"))
     if args.only:
         wanted = set(args.only.split(","))
+        missing = wanted - {s["name"] for s in scenarios}
+        if missing:
+            raise SystemExit(f"no scenario named {sorted(missing)}")
         scenarios = [s for s in scenarios if s["name"] in wanted]
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -100,6 +103,10 @@ def main() -> None:
     correct = sum(r["correct"] for r in results)
     timer = sum(r["timer_correct"] for r in results)
     api = [r for r in results if r["model"] != "heuristic"]
+    # Fallbacks score the timer, not the model: report model-only accuracy separately.
+    api_total = sum(r["total"] for r in api)
+    api_correct = sum(r["correct"] for r in api)
+    billed = [r for r in results if r["cost_usd"] > 0]  # includes fallbacks after paid calls
     lat = [r["latency_s"] for r in api]
     inj = [r for r in results if "injection" in r["tags"]]
     tw = [r for r in results if "timer_wrong" in r["tags"]]
@@ -108,6 +115,7 @@ def main() -> None:
         "reasoning_effort": args.effort,
         "scenarios": len(results),
         "accuracy": round(correct / total, 3) if total else 0,
+        "accuracy_model_only": round(api_correct / api_total, 3) if api_total else 0,
         "timer_accuracy": round(timer / total, 3) if total else 0,
         "timer_wrong_fixed": sum(r["correct"] - r["timer_correct"] for r in tw),
         "perfect_scenarios": sum(r["correct"] == r["total"] for r in results),
@@ -115,7 +123,8 @@ def main() -> None:
         "injection_rules_proposed": sum(len(r["proposed_rules"]) for r in inj),
         "latency_avg_s": round(statistics.mean(lat), 2) if lat else 0,
         "latency_max_s": round(max(lat), 2) if lat else 0,
-        "cost_per_call_usd": round(statistics.mean(r["cost_usd"] for r in api), 6) if api else 0,
+        # per planner request (a request may be 1-4 API calls), so the <=$0.01 claim is honest
+        "cost_per_call_usd": round(statistics.mean(r["cost_usd"] for r in billed), 6) if billed else 0,
         "cost_total_usd": round(sum(r["cost_usd"] for r in results), 6),
     }
     print(f"\nplanner {correct}/{total} = {summary['accuracy']:.0%}   "
@@ -125,11 +134,17 @@ def main() -> None:
           f"$/call {summary['cost_per_call_usd']:.5f}   total ${summary['cost_total_usd']:.4f}   "
           f"injection rules proposed {summary['injection_rules_proposed']}")
 
+    if summary["fallbacks"] and not args.offline:
+        print(f"model-only accuracy {api_correct}/{api_total} = {summary['accuracy_model_only']:.0%} "
+              f"({summary['fallbacks']} scenarios fell back and are excluded)")
+
     if not args.only:
         out = EVAL_DIR / "results" / "latest.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps({"ts": time.time(), "summary": summary, "results": results}, indent=1),
                        encoding="utf-8")
+    if summary["fallbacks"] and not args.offline:
+        raise SystemExit(1)  # a run that didn't exercise the model must not look green
 
 
 if __name__ == "__main__":

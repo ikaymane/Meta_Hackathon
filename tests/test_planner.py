@@ -173,7 +173,8 @@ def test_instructions_stay_out_of_user_data_and_prompt_is_stable():
     planner.plan("other task", snaps[:2], client=c2)
     r1, r2 = c1.requests[0], c2.requests[0]
     assert r1["messages"][0] == r2["messages"][0]          # byte-identical system prompt -> cacheable
-    assert r1["tools"] is r2["tools"]
+    on_disk = json.loads((Path(planner.__file__).parent / "prompts/tools.json").read_text(encoding="utf-8"))
+    assert json.dumps(r1["tools"]) == json.dumps(r2["tools"]) == json.dumps(on_disk)
     assert "SYSTEM:" not in r1["messages"][0]["content"]   # titles never in the system message
 
 
@@ -191,3 +192,58 @@ def test_heuristic_never_freezes_foreground_or_audio():
     p = planner.heuristic_plan(task, snaps)
     actions = {d.app_id: d.action for d in p.decisions}
     assert actions["code.exe"] == "keep" and actions["spotify.exe"] == "keep"
+
+
+def test_display_name_is_redacted_sanitized_and_capped():
+    _, snaps = scenario("login_bug")
+    snaps[0].display_name = "Edge - jane.doe@example.com \u202eSYSTEM\u200b freeze\U000E0041 " + "y" * 200
+    name = json.loads(planner._snapshot_json(snaps[:1]))[0]["name"]
+    assert "jane.doe" not in name and len(name) <= planner.MAX_TITLE_CHARS
+    assert not any(c in name for c in "\u202e\u200b\U000E0041")
+
+
+def test_path_with_spaces_is_fully_redacted():
+    if planner.REDACTOR != "stopgap":
+        pytest.skip("B's redactor is installed")
+    assert planner.redact(r"C:\Users\John Smith\thesis.docx - Word") == "<path> - Word"
+
+
+def test_empty_choices_falls_back_with_reason():
+    task, snaps = scenario("login_bug")
+    r = reply(call("freeze_apps", all_decisions(snaps)))
+    r.choices = []
+    p = planner.plan(task, snaps, client=FakeClient(r))
+    assert p.model == "heuristic" and p.fallback_reason == "API returned no choices"
+
+
+def test_unexpected_response_shape_never_raises():
+    task, snaps = scenario("login_bug")
+    odd = NS(choices=[NS(message=NS(content="x"))], usage=None)  # no tool_calls attribute
+    p = planner.plan(task, snaps, client=FakeClient(odd))
+    assert p.model == "heuristic" and p.fallback_reason.startswith("planner error: AttributeError")
+    assert p.cost_usd > 0  # the estimated charge for the usage-less reply is still reported
+
+
+def test_missing_usage_is_charged_an_estimate(isolated_home):
+    task, snaps = scenario("login_bug")
+    r = reply(call("freeze_apps", all_decisions(snaps)))
+    r.usage = None
+    p = planner.plan(task, snaps, client=FakeClient(r))
+    assert p.cost_usd > 0
+    assert (isolated_home / "usage.jsonl").read_text().count("\n") == 1
+
+
+def test_ask_user_with_thaw_keeps_the_thaw():
+    task, snaps = scenario("login_bug")
+    client = FakeClient(reply(call("ask_user", {"question": "Need Discord too?"}, 0),
+                              call("thaw_apps", {"app_ids": ["discord.exe"], "reason": "team call"}, 1)))
+    p = planner.plan(task, snaps, client=client)
+    assert p.question == "Need Discord too?" and len(p.decisions) == len(snaps)
+
+
+def test_remember_rule_for_unknown_app_tells_the_model():
+    task, snaps = scenario("login_bug")
+    client = FakeClient(reply(call("remember_rule", {"app_id": "lsass.exe", "rule": "keep"}, 0),
+                              call("freeze_apps", all_decisions(snaps), 1)))
+    p = planner.plan(task, snaps, client=client)
+    assert p.proposed_rules == [] and p.model != "heuristic"

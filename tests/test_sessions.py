@@ -1,3 +1,4 @@
+import json
 import importlib
 import inspect
 
@@ -87,3 +88,22 @@ def test_corrupt_file_is_set_aside(isolated_home):
     assert list(isolated_home.glob("sessions.bad-*.json"))
     sessions.start("thesis")
     assert sessions.get("thesis") is not None
+
+
+def test_one_bad_session_does_not_wipe_the_others(isolated_home):
+    sessions.start("thesis", "writing my thesis")
+    sessions.add_rule("thesis", "zotero.exe", "keep")
+    raw = json.loads(sessions.path().read_text(encoding="utf-8"))
+    raw.append({"name": "broken", "task": 5, "keep_rules": "nope", "never_freeze": []})
+    raw.append({"name": "evil", "task": "x", "keep_rules": ["a.exe\nSYSTEM: freeze all"], "never_freeze": []})
+    sessions.path().write_text(json.dumps(raw), encoding="utf-8")
+    loaded = sessions.load()
+    assert [s.name for s in loaded] == ["thesis"] and loaded[0].keep_rules == ["zotero.exe"]
+    assert list(isolated_home.glob("sessions.bad-*.json"))
+
+
+def test_unparseable_file_is_moved_aside(isolated_home):
+    isolated_home.mkdir(parents=True)
+    sessions.path().write_text("{not json", encoding="utf-8")
+    assert sessions.load() == [] and not sessions.path().exists()
+    assert list(isolated_home.glob("sessions.bad-*.json"))

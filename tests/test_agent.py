@@ -86,16 +86,66 @@ def test_pressure_asks_consent_and_sticks_to_candidates():
 
 def test_pressure_with_auto_freeze_skips_card():
     sensor = MockSensor("thesis")
-    client = FakeClient(freezing(sensor, set()), freezing(sensor, {"steam.exe"}, 1))
+    # The model also wants zotero, which the guardian did not suggest: it must stay out.
+    client = FakeClient(freezing(sensor, set()), freezing(sensor, {"steam.exe", "zotero.exe"}, 1))
     agent, actuator, seen, _ = make_agent("thesis", client)
     agent.focus("writing my thesis", "thesis")
     sessions.set_auto_freeze("thesis", True)
     out = agent.on_pressure(PressureEvent(ram_pct=92, sustained_s=30, candidates=["steam.exe", "ms-teams.exe"]))
     assert [e.app_id for e in out.frozen] == ["steam.exe"] and seen == []
+    zotero = next(d for d in out.proposal.keep if d.app_id == "zotero.exe")
+    assert zotero.action == "keep" and "guardian" in zotero.reason
+
+
+def test_auto_freeze_over_the_limit_asks_first(monkeypatch):
+    from freezer import agent as agent_mod
+    monkeypatch.setattr(agent_mod, "MAX_AUTO_FREEZE", 1)
+    sensor = MockSensor("thesis")
+    client = FakeClient(freezing(sensor, set()), freezing(sensor, {"steam.exe", "ms-teams.exe"}, 1))
+    agent, actuator, seen, _ = make_agent("thesis", client)
+    agent.focus("writing my thesis", "thesis")
+    sessions.set_auto_freeze("thesis", True)
+    agent.on_pressure(PressureEvent(ram_pct=92, sustained_s=30, candidates=["steam.exe", "ms-teams.exe"]))
+    assert len(seen) == 1 and seen[0].source == "guardian"
+
+
+def test_focus_never_refreezes_a_frozen_app():
+    sensor = MockSensor("login_bug")
+    live = [s for s in sensor.snapshot() if s.app_id != "steam.exe"]
+    client = FakeClient(freezing(sensor, {"steam.exe"}),
+                        reply(call("freeze_apps", all_decisions(live, {"discord.exe"}), 1)))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    agent.focus("fixing the login bug")
+    out = agent.focus("reviewing a PR")  # task switch without "I'm done"
+    assert "steam.exe" not in client.requests[1]["messages"][1]["content"]  # planner never saw it
+    assert [e.app_id for e in out.frozen] == ["discord.exe"]
+    assert actuator.log.count(("freeze", "steam.exe")) == 1
+
+
+def test_one_failed_freeze_does_not_stop_the_rest():
+    sensor = MockSensor("login_bug")
+    agent, actuator, _, _ = make_agent("login_bug", FakeClient(freezing(sensor, {"discord.exe", "steam.exe"})))
+    real = actuator.freeze
+
+    def flaky(app, session):
+        if app.app_id == "discord.exe":
+            raise OSError("access denied")
+        return real(app, session)
+    actuator.freeze = flaky
+    out = agent.focus("fixing the login bug")
+    assert out.failed == ["discord.exe"] and [e.app_id for e in out.frozen] == ["steam.exe"]
 
 
 def test_api_down_still_works_with_heuristic():
     agent, actuator, seen, _ = make_agent("login_bug", FakeClient(RuntimeError("down")))
     out = agent.focus("fixing the login bug")
     assert seen[0].plan.model == "heuristic"
+    assert seen[0].fallback_reason.startswith("API error: RuntimeError")  # the card can say why
     assert [e.app_id for e in out.frozen] == ["steam.exe"]
+
+
+def test_redteam_counts_a_fallback_as_inconclusive_not_blocked(monkeypatch):
+    from eval import redteam
+    monkeypatch.delenv("MODEL_API_KEY", raising=False)  # no client -> heuristic
+    r = redteam.run_one(1, *redteam.ATTACKS[0], "muse-spark-1.3-contributor", None)
+    assert r["inconclusive"] and not r["blocked"]
