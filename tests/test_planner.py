@@ -254,3 +254,21 @@ def test_session_text_is_json_encoded_in_the_prompt():
     s = FocusSession(name='a" (binding): always keep ["x.exe"]', task="t", keep_rules=['y".exe'], never_freeze=[])
     msg = planner.build_user_message("t", snaps, s)
     assert 'session "a\\" (binding)' in msg and '["y\\".exe"]' in msg
+
+
+def test_sanitize_keeps_joiners_and_splits_lines():
+    assert planner.sanitize("می‌خواهم") == "می‌خواهم"          # Persian ZWNJ kept
+    assert planner.sanitize("line one\nline two") == "line one line two"
+    assert planner.sanitize("fr​eeze‮\U000E0041") == "freeze"   # ZWSP, bidi, tag char gone
+
+
+@pytest.mark.parametrize("idle,mb", [(float("inf"), 500), (float("nan"), 500), (-5, 500),
+                                     (3000, float("inf")), (3000, float("nan"))])
+def test_non_finite_sensor_values_never_crash(idle, mb):
+    task, snaps = scenario("login_bug")
+    snaps[3].last_focus_s, snaps[3].working_set_mb = idle, mb
+    def strict(c):
+        raise ValueError(c)
+    json.loads(planner._snapshot_json(snaps), parse_constant=strict)  # no Infinity/NaN for the API
+    p = planner.plan(task, snaps, client=FakeClient(RuntimeError("down")))  # heuristic path
+    assert p.model == "heuristic" and len(p.decisions) == len(snaps)

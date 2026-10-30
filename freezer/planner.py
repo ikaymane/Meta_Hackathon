@@ -45,6 +45,7 @@ MAX_REASON_CHARS = 120
 # Heuristic fallback thresholds (spec step 2)
 IDLE_FREEZE_S = 20 * 60
 SIZE_FREEZE_MB = 200
+IDLE_CAP_S = 7 * 24 * 3600  # "never focused" (inf) reads as a week; unknown (NaN) as just used
 
 _PROMPTS = Path(__file__).parent / "prompts"
 # Loaded once and sent byte-identical every call so prompt caching applies.
@@ -77,10 +78,22 @@ except ModuleNotFoundError as e:
         return text
 
 
+# Joiners shape Persian, Arabic and Indic words and emoji; they can't hide an instruction.
+_KEEP_FORMAT = {"‌", "‍"}
+
+
 def sanitize(text: str) -> str:
-    """Drop control and format characters (zero-width, bidi overrides, Unicode tag
-    characters): invisible to the user, readable by the model."""
-    return "".join(c for c in text if unicodedata.category(c) not in ("Cc", "Cf") or c in " \t")
+    """Drop format characters (zero-width space, bidi overrides, Unicode tag characters):
+    invisible to the user, readable by the model. Control characters such as newlines
+    become spaces so words on two lines don't glue together."""
+    out = []
+    for c in text:
+        cat = unicodedata.category(c)
+        if cat == "Cc":
+            out.append(" ")
+        elif cat != "Cf" or c in _KEEP_FORMAT:
+            out.append(c)
+    return "".join(out)
 
 
 # ---- Output schema ---------------------------------------------------------
@@ -131,6 +144,19 @@ def _fenced(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e")
 
 
+def _idle_s(s: AppSnapshot) -> float:
+    """Sensor idle time made safe: inf, NaN or negative must not crash round() or JSON."""
+    v = s.last_focus_s
+    if v != v or v < 0:  # NaN or negative: unknown, so treat as recently used (kept)
+        return 0.0
+    return min(v, IDLE_CAP_S)
+
+
+def _mb(s: AppSnapshot) -> float:
+    v = s.working_set_mb
+    return v if v == v and 0 <= v < float("inf") else 0.0
+
+
 def _untrusted(text: str) -> str:
     return redact(sanitize(text))[:MAX_TITLE_CHARS]
 
@@ -141,8 +167,8 @@ def _snapshot_json(snapshots: list[AppSnapshot]) -> str:
             "app_id": s.app_id,  # not redacted: the model must echo it back exactly
             "name": _untrusted(s.display_name),
             "titles": [_untrusted(t) for t in s.window_titles[:MAX_TITLES]],
-            "ram_mb": round(s.working_set_mb),
-            "idle_min": round(s.last_focus_s / 60, 1),
+            "ram_mb": round(_mb(s)),
+            "idle_min": round(_idle_s(s) / 60, 1),
             "foreground": s.is_foreground,
             "audio": s.plays_audio,
             "network": s.has_network,
@@ -207,10 +233,10 @@ def heuristic_plan(task: str, snapshots: list[AppSnapshot], session: FocusSessio
     for s in snapshots:
         if s.is_foreground or s.plays_audio:
             decisions.append(Decision(s.app_id, "keep", "In use right now"))
-        elif s.last_focus_s > IDLE_FREEZE_S and s.working_set_mb > SIZE_FREEZE_MB:
+        elif _idle_s(s) > IDLE_FREEZE_S and _mb(s) > SIZE_FREEZE_MB:
             decisions.append(Decision(
                 s.app_id, "freeze",
-                f"Idle {round(s.last_focus_s / 60)} min, using {round(s.working_set_mb)} MB"))
+                f"Idle {round(_idle_s(s) / 60)} min, using {round(_mb(s))} MB"))
         else:
             decisions.append(Decision(s.app_id, "keep", "Recently used or small"))
     return Plan(task=task, decisions=_apply_session_rules(decisions, session), model="heuristic")
