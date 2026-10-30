@@ -19,6 +19,9 @@ Invariants:
 from __future__ import annotations
 
 import logging
+import os
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Protocol
 
@@ -33,6 +36,9 @@ GUARDIAN_TASK = ("Free up memory. The user's current work is unknown: keep anyth
                  "looks like active work and prefer freezing large idle unrelated apps.")
 # auto_freeze has no card, so a manipulated plan can't freeze the whole desktop at once.
 MAX_AUTO_FREEZE = 3
+# Rolling rate limit (handoff patch 01, re-applied): at most this many freezes per
+# rolling minute across calls, so repeated triggers cannot strip the machine unattended.
+MAX_FREEZES_PER_MIN = 10
 # Work tools are never frozen without a card: killing a terminal or IDE can lose
 # running work (dev server, debug session) that the sensor cannot see, and titles
 # on these apps are attacker-writable (red-team gap-03). Matched by app_id only;
@@ -48,6 +54,7 @@ BLOCK_REASONS = {
     "foreground": "You're using it right now", "plays_audio": "Playing sound",
     "elevated": "Runs as administrator", "self": "Focus Freeze itself",
     "unknown_app": "Closed or not found",
+    "rate_limited": "Too many freezes in a minute",
 }
 POLICY_SILENT = "Kept for safety"
 
@@ -66,6 +73,10 @@ def fallback_message(reason: str | None) -> str | None:
         why = "the AI isn't set up on this PC"
     elif "usage log" in reason:
         why = "Focus Freeze can't record AI costs right now"
+    elif "trains on what it receives" in reason:
+        why = "the AI learns from what it sees, so app titles were held back for privacy"
+    elif "FF_PAID_BALANCE" in reason:
+        why = "the AI balance needs confirming, so app titles were held back"
     else:
         why = "the AI didn't answer in time"
     return f"Simple mode: {why}, so this list uses idle time only. Check it before you freeze."
@@ -123,10 +134,14 @@ Consent = Callable[[Proposal], "list[str] | None"]
 class FocusAgent:
     def __init__(self, sensor: Sensor, policy: Policy, actuator: Actuator, consent: Consent, *,
                  model: str = DEFAULT_MODEL, effort: str | None = DEFAULT_EFFORT, client: Any = None,
-                 on_fallback: Callable[[str], None] | None = None):
+                 on_fallback: Callable[[str], None] | None = None,
+                 on_progress: Callable[[str, int], None] | None = None):
         self.sensor, self.policy, self.actuator, self.consent = sensor, policy, actuator, consent
         self.model, self.effort, self.client, self.on_fallback = model, effort, client, on_fallback
+        self.on_progress = on_progress
         self.session_name: str | None = None
+        # Rolling rate limit: freeze timestamps (unix seconds) spent by _execute.
+        self._freeze_times: deque[float] = deque()
 
     # ---- proposal ----------------------------------------------------------
 
@@ -135,7 +150,7 @@ class FocusAgent:
                 candidates: list[str] | None = None, frozen: set[str] | frozenset = frozenset()) -> Proposal:
         """frozen = app_ids already in the ledger: shown to the planner, never frozen twice."""
         p = plan(task, snaps, session, model=self.model, reasoning_effort=self.effort, client=self.client,
-                 on_fallback=self.on_fallback)
+                 on_fallback=self.on_fallback, frozen=frozen, on_progress=self.on_progress)
         wanted = [d for d in p.decisions if d.action == "freeze" and d.app_id not in frozen
                   and (candidates is None or d.app_id in candidates)]
         verdict = self.policy([d.app_id for d in wanted], snaps)
@@ -175,15 +190,26 @@ class FocusAgent:
         recheck = self.policy([a for a in ids if a in by_id], list(by_id.values()))
         ok = {a for a in recheck.allowed if a in by_id}
         skipped = list(recheck.blocked) + [Blocked(a, "unknown_app") for a in ids if a not in by_id]
+        # Rolling rate limit, in plan order: over-limit approvals are reported as
+        # skipped, never silently dropped.
+        ready = [a for a in ids if a in ok]
+        now = time.time()
+        while self._freeze_times and now - self._freeze_times[0] >= 60:
+            self._freeze_times.popleft()
+        attempt = ready[:max(0, MAX_FREEZES_PER_MIN - len(self._freeze_times))]
+        over = [a for a in ready if a not in attempt]
+        skipped += [Blocked(a, "rate_limited") for a in over]
+        if over:
+            log.info("rate limit: freezing %d of %d approved apps", len(attempt), len(ready))
         frozen, failed = [], []
-        for a in ids:
-            if a not in ok:
-                continue
+        for a in attempt:
             try:  # one app failing must not leave the rest half-done and unreported
                 frozen.append(self.actuator.freeze(by_id[a], proposal.session or ""))
             except Exception:
                 log.exception("freeze failed for %s", a)
                 failed.append(a)
+        for _ in frozen:
+            self._freeze_times.append(time.time())
         return Outcome(proposal=proposal, frozen=frozen, failed=failed, skipped=skipped,
                        unticked=[a for a in allowed if a not in approved_set])
 
@@ -298,6 +324,7 @@ def _terminal_consent(auto_yes: bool) -> Consent:
 
 
 def _main() -> None:
+    os.environ["FF_SYNTHETIC_DATA"] = "1"  # this CLI only ever sees mock data
     import argparse
 
     from freezer.mocks import MockActuator, MockSensor, mock_policy

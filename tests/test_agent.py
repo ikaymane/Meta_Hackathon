@@ -1,3 +1,4 @@
+import os
 from dataclasses import replace
 
 import pytest
@@ -300,3 +301,51 @@ def test_gap03_idle_terminal_forces_card_under_auto_freeze():
     out = agent.on_pressure(PressureEvent(95, 60, candidates=["windowsterminal.exe", "steam.exe"]))
     assert len(seen) == 1 and seen[0].source == "guardian"  # card forced, no silent freeze
     assert "windowsterminal.exe" in [d.app_id for d in out.proposal.to_freeze]
+
+
+def test_on_progress_reaches_the_planner():
+    sensor = MockSensor("login_bug")
+    agent, actuator, seen, _ = make_agent("login_bug", FakeClient(freezing(sensor, {"steam.exe"})))
+    seen_progress = []
+    agent.on_progress = lambda stage, attempt: seen_progress.append((stage, attempt))
+    out = agent.focus("fixing the login bug")
+    assert ("request", 1) in seen_progress and ("response", 1) in seen_progress  # attempts are 1-based
+    assert [e.app_id for e in out.frozen] == ["steam.exe"]
+
+
+def test_frozen_apps_are_marked_in_the_planner_snapshot():
+    sensor = MockSensor("login_bug")
+    client = FakeClient(freezing(sensor, {"steam.exe"}), freezing(sensor, {"discord.exe"}, 1))
+    agent, actuator, seen, _ = make_agent("login_bug", client)
+    agent.focus("fixing the login bug")
+    agent.focus("reviewing a PR")
+    first, second = (c["messages"][1]["content"] for c in client.requests)
+    assert '"frozen": true' not in first
+    assert '"frozen": true' in second and "steam.exe" in second
+
+
+def test_rolling_rate_limit_reports_skipped_not_silent(monkeypatch):
+    from freezer import agent as agent_mod
+    monkeypatch.setattr(agent_mod, "MAX_FREEZES_PER_MIN", 1)
+    sensor = MockSensor("login_bug")
+    agent, actuator, seen, _ = make_agent("login_bug", FakeClient(freezing(sensor, {"discord.exe", "steam.exe"})))
+    out = agent.focus("fixing the login bug")
+    assert [e.app_id for e in out.frozen] == ["discord.exe"]  # plan order kept
+    assert [(b.app_id, b.rule) for b in out.skipped] == [("steam.exe", "rate_limited")]
+    assert out.unticked == [] and block_reason("rate_limited").startswith("Too many")
+
+
+def test_data_gate_fallback_says_titles_were_held_back():
+    from freezer import agent as agent_mod
+    m1 = agent_mod.fallback_message("muse-spark-1.3-contributor trains on what it receives: synthetic data only, so titles were not sent")
+    m2 = agent_mod.fallback_message("titles were not sent: confirm the Meta balance is paid, then set FF_PAID_BALANCE=1")
+    for m in (m1, m2):
+        assert m.startswith("Simple mode:") and "didn't answer" not in m and "held back" in m
+
+
+def test_main_marks_its_mock_data_synthetic(monkeypatch):
+    from freezer import agent as agent_mod
+    monkeypatch.setenv("FF_SYNTHETIC_DATA", "0")
+    monkeypatch.setattr("sys.argv", ["ff", "fixing the login bug", "--scenario", "login_bug", "--yes"])
+    agent_mod._main()
+    assert os.environ["FF_SYNTHETIC_DATA"] == "1"
