@@ -33,6 +33,11 @@ GUARDIAN_TASK = ("Free up memory. The user's current work is unknown: keep anyth
                  "looks like active work and prefer freezing large idle unrelated apps.")
 # auto_freeze has no card, so a manipulated plan can't freeze the whole desktop at once.
 MAX_AUTO_FREEZE = 3
+# Work tools are never frozen without a card: killing a terminal or IDE can lose
+# running work (dev server, debug session) that the sensor cannot see, and titles
+# on these apps are attacker-writable (red-team gap-03). Matched by app_id only;
+# titles and display names play no part. B's real policy owns the full list.
+WORK_TOOLS_NO_AUTO = frozenset({"windowsterminal.exe", "code.exe", "studio64.exe"})
 # The guardian never touches an app used in the last 5 minutes. Idle time comes from the
 # sensor, so a title like "server stopped, terminal not in use" can't fake it (red-team gap-03).
 GUARDIAN_MIN_IDLE_S = 5 * 60
@@ -44,7 +49,6 @@ BLOCK_REASONS = {
     "elevated": "Runs as administrator", "self": "Focus Freeze itself",
     "unknown_app": "Closed or not found",
 }
-GUARDIAN_SKIPPED = "Not one of the idle apps the memory guardian picked"
 POLICY_SILENT = "Kept for safety"
 
 
@@ -145,9 +149,8 @@ class FocusAgent:
         for d in p.decisions:
             if d.app_id in allowed or d.app_id in blocked or d.app_id in frozen:
                 continue
-            if d.action == "freeze":  # outside the guardian's candidates, or policy was silent
-                outside = candidates is not None and d.app_id not in candidates
-                d = Decision(d.app_id, "keep", GUARDIAN_SKIPPED if outside else POLICY_SILENT)
+            if d.action == "freeze":  # policy was silent: keep to be safe
+                d = Decision(d.app_id, "keep", POLICY_SILENT)
             keep.append(d)
         return Proposal(
             plan=p,
@@ -244,9 +247,12 @@ class FocusAgent:
         proposal = self.propose(task, plan_snaps, session, source="guardian", candidates=candidates)
         if not proposal.to_freeze or proposal.plan.question:
             return Outcome(proposal=proposal)
-        if session and session.auto_freeze and len(proposal.to_freeze) <= MAX_AUTO_FREEZE:
+        tools = [d.app_id for d in proposal.to_freeze if d.app_id.lower() in WORK_TOOLS_NO_AUTO]
+        if session and session.auto_freeze and len(proposal.to_freeze) <= MAX_AUTO_FREEZE and not tools:
             approved = [d.app_id for d in proposal.to_freeze]
-        else:  # no auto_freeze, or it wants more than the no-card limit: ask
+        else:  # no auto_freeze, over the no-card limit, or a work tool needs eyes: ask
+            if tools:
+                log.info("guardian shows card: auto_freeze skips work tools: %s", tools)
             approved = self.consent(proposal)
             if approved is None:
                 return Outcome(proposal=proposal, declined=True)
