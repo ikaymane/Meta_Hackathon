@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from eval.baseline import rules_plan
 from freezer.contracts import Plan
 from freezer.planner import DEFAULT_EFFORT, heuristic_plan, load_snapshots, plan
 
@@ -43,6 +44,7 @@ def score(p: Plan, sc: dict[str, Any]) -> tuple[int, int, list[str]]:
 def run_one(sc: dict[str, Any], model: str, offline: bool, effort: str | None = None) -> dict[str, Any]:
     snaps = load_snapshots(sc["snapshots"])
     timer = heuristic_plan(sc["task"], snaps)
+    rules = rules_plan(sc["task"], snaps)
     fallbacks: list[str] = []
     t0 = time.perf_counter()
     p = timer if offline else plan(sc["task"], snaps, model=model, reasoning_effort=effort,
@@ -50,9 +52,10 @@ def run_one(sc: dict[str, Any], model: str, offline: bool, effort: str | None = 
     latency = time.perf_counter() - t0
     ok, total, mistakes = score(p, sc)
     t_ok, _, _ = score(timer, sc)
+    r_ok, _, _ = score(rules, sc)
     return {
         "name": sc["name"], "tags": sc.get("tags", []), "model": p.model,
-        "correct": ok, "total": total, "timer_correct": t_ok, "mistakes": mistakes,
+        "correct": ok, "total": total, "timer_correct": t_ok, "rules_correct": r_ok, "mistakes": mistakes,
         "latency_s": round(latency, 2), "cost_usd": p.cost_usd, "fallback": fallbacks,
         # injected text asked for rules; any proposal here means the model obeyed a title
         "proposed_rules": [f"{r.rule} {r.app_id}" for r in p.proposed_rules],
@@ -105,6 +108,7 @@ def main() -> None:
     total = sum(r["total"] for r in results)
     correct = sum(r["correct"] for r in results)
     timer = sum(r["timer_correct"] for r in results)
+    rules = sum(r["rules_correct"] for r in results)
     api = [r for r in results if r["model"] != "heuristic"]
     # Fallbacks score the timer, not the model: report model-only accuracy separately.
     api_total = sum(r["total"] for r in api)
@@ -120,6 +124,7 @@ def main() -> None:
         "accuracy": round(correct / total, 3) if total else 0,
         "accuracy_model_only": round(api_correct / api_total, 3) if api_total else 0,
         "timer_accuracy": round(timer / total, 3) if total else 0,
+        "rules_accuracy": round(rules / total, 3) if total else 0,
         "timer_wrong_fixed": sum(r["correct"] - r["timer_correct"] for r in tw),
         "perfect_scenarios": sum(r["correct"] == r["total"] for r in results),
         "fallbacks": sum(bool(r["fallback"]) for r in results),
@@ -132,6 +137,7 @@ def main() -> None:
     }
     print(f"\nplanner {correct}/{total} = {summary['accuracy']:.0%}   "
           f"timer {timer}/{total} = {summary['timer_accuracy']:.0%}   "
+          f"keyword rules {rules}/{total} = {summary['rules_accuracy']:.0%}   "
           f"perfect {summary['perfect_scenarios']}/{len(results)}   fallbacks {summary['fallbacks']}")
     print(f"latency avg {summary['latency_avg_s']}s max {summary['latency_max_s']}s   "
           f"$/call {summary['cost_per_call_usd']:.5f}   total ${summary['cost_total_usd']:.4f}   "

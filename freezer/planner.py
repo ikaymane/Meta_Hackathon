@@ -345,13 +345,15 @@ def plan(
     client: Any = None,
     on_fallback: Callable[[str], None] | None = None,
     frozen: Collection[str] = (),
+    on_progress: Callable[[str, int], None] | None = None,
 ) -> Plan:
     """Ask Muse Spark for a keep/freeze plan. Never raises: falls back to heuristic_plan.
 
     Every fallback is logged, passed to on_fallback, and recorded in Plan.fallback_reason
     so the consent card can say the plan came from the simple rule, not the AI.
     frozen = app_ids already frozen, marked in the snapshot so the model knows "keep" brings
-    them back.
+    them back. on_progress(stage, attempt) fires with "request" and "response" around each
+    API call, so the UI can show a spinner; it can't break the plan.
     """
     spent = [0.0]  # boxed so the crash path below still reports what was billed
 
@@ -370,7 +372,7 @@ def plan(
         return fallback(why)
     try:
         return _unalias(_plan(task, snapshots, session, model, reasoning_effort, client, fallback,
-                              spent, frozen), snapshots)
+                              spent, frozen, on_progress), snapshots)
     except Exception as e:  # a bug or odd response must cost a heuristic plan, not the agent
         log.exception("planner crashed")
         return fallback(f"planner error: {type(e).__name__}: {e}")
@@ -397,7 +399,15 @@ def _unalias(p: Plan, snapshots: list[AppSnapshot]) -> Plan:
 
 def _plan(task: str, snapshots: list[AppSnapshot], session: FocusSession | None, model: str,
           reasoning_effort: str | None, client: Any, fallback: Callable[[str], Plan],
-          spent: list[float], frozen: Collection[str] = ()) -> Plan:
+          spent: list[float], frozen: Collection[str] = (),
+          on_progress: Callable[[str, int], None] | None = None) -> Plan:
+    def progress(stage: str, attempt: int) -> None:
+        if on_progress:
+            try:
+                on_progress(stage, attempt)
+            except Exception:
+                log.exception("on_progress failed")
+
     try:
         client = client or make_client()
     except Exception as e:  # missing key, bad config
@@ -412,16 +422,18 @@ def _plan(task: str, snapshots: list[AppSnapshot], session: FocusSession | None,
     # Latency is ~all output tokens, mostly hidden reasoning; lower effort = faster.
     extra = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
 
-    for _ in range(MAX_TURNS):
+    for attempt in range(1, MAX_TURNS + 1):
         if not cost.usage_log_ok():
             return fallback("can't write the usage log, so spend can't be capped: using the simple rule")
         if cost.over_cap():
             return fallback(f"spend cap ${cost.cap_usd():.2f} reached, using the simple rule")
         t0 = time.perf_counter()
+        progress("request", attempt)
         try:
             resp = client.chat.completions.create(model=model, messages=messages, tools=TOOLS, **extra)
         except Exception as e:
             return fallback(f"API error: {type(e).__name__}: {e}")
+        progress("response", attempt)
         spent[0] += _record_usage(model, resp, time.perf_counter() - t0)
         if not resp.choices:
             return fallback("API returned no choices")

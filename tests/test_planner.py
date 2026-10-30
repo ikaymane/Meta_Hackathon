@@ -346,3 +346,16 @@ def test_frozen_apps_are_marked_only_when_frozen():
     _, snaps = scenario("login_bug")
     apps = {a["app_id"]: a for a in json.loads(planner._snapshot_json(snaps, {"steam.exe"}))}
     assert apps["steam.exe"]["frozen"] is True and "frozen" not in apps["discord.exe"]
+
+
+def test_progress_fires_around_each_call_and_cannot_break_the_plan():
+    task, snaps = scenario("login_bug")
+    seen = []
+    client = FakeClient(reply(call("list_apps", {})), reply(call("freeze_apps", all_decisions(snaps), 1)))
+    planner.plan(task, snaps, client=client, on_progress=lambda s, a: seen.append((s, a)))
+    assert seen == [("request", 1), ("response", 1), ("request", 2), ("response", 2)]
+
+    def boom(stage, attempt):
+        raise RuntimeError("ui died")
+    client = FakeClient(reply(call("freeze_apps", all_decisions(snaps))))
+    assert planner.plan(task, snaps, client=client, on_progress=boom).model != "heuristic"
