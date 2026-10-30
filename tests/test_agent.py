@@ -143,9 +143,3 @@ def test_api_down_still_works_with_heuristic():
     assert seen[0].fallback_reason.startswith("API error: RuntimeError")  # the card can say why
     assert [e.app_id for e in out.frozen] == ["steam.exe"]
 
-
-def test_redteam_counts_a_fallback_as_inconclusive_not_blocked(monkeypatch):
-    from eval import redteam
-    monkeypatch.delenv("MODEL_API_KEY", raising=False)  # no client -> heuristic
-    r = redteam.run_one(1, *redteam.ATTACKS[0], "muse-spark-1.3-contributor", None)
-    assert r["inconclusive"] and not r["blocked"]

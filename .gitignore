@@ -11,3 +11,5 @@ htmlcov/
 .idea/
 *.log
 demo/recordings/
+
+eval/results/redteam_home/

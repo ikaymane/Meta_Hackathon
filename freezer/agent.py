@@ -22,7 +22,7 @@ from typing import Any, Callable, Literal, Protocol
 from freezer import sessions
 from freezer.contracts import (Actuator, AppSnapshot, Blocked, Decision, FocusSession,
                                LedgerEntry, Plan, PolicyResult, PressureEvent)
-from freezer.planner import DEFAULT_MODEL, plan
+from freezer.planner import DEFAULT_EFFORT, DEFAULT_MODEL, plan
 
 log = logging.getLogger(__name__)
 
@@ -72,10 +72,10 @@ Consent = Callable[[Proposal], "list[str] | None"]
 
 class FocusAgent:
     def __init__(self, sensor: Sensor, policy: Policy, actuator: Actuator, consent: Consent, *,
-                 model: str = DEFAULT_MODEL, client: Any = None,
+                 model: str = DEFAULT_MODEL, effort: str | None = DEFAULT_EFFORT, client: Any = None,
                  on_fallback: Callable[[str], None] | None = None):
         self.sensor, self.policy, self.actuator, self.consent = sensor, policy, actuator, consent
-        self.model, self.client, self.on_fallback = model, client, on_fallback
+        self.model, self.effort, self.client, self.on_fallback = model, effort, client, on_fallback
         self.session_name: str | None = None
 
     # ---- proposal ----------------------------------------------------------
@@ -83,7 +83,8 @@ class FocusAgent:
     def propose(self, task: str, snaps: list[AppSnapshot], session: FocusSession | None,
                 source: Literal["user", "guardian"] = "user",
                 candidates: list[str] | None = None) -> Proposal:
-        p = plan(task, snaps, session, model=self.model, client=self.client, on_fallback=self.on_fallback)
+        p = plan(task, snaps, session, model=self.model, reasoning_effort=self.effort, client=self.client,
+                 on_fallback=self.on_fallback)
         wanted = [d for d in p.decisions if d.action == "freeze"
                   and (candidates is None or d.app_id in candidates)]
         verdict = self.policy([d.app_id for d in wanted], snaps)
