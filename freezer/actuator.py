@@ -1,0 +1,500 @@
+"""Real Windows actuator: suspend/trim process trees, thaw them back.
+
+Implements the contracts.Actuator protocol. Freeze order per app:
+ledger FIRST -> minimize windows -> suspend every live verified process ->
+trim (EmptyWorkingSet) every suspended process.
+
+Safety rules:
+- A process is acted on only if its PID is live, its exe is known and not
+  a system binary (conhost.exe included), it is not in session 0, it is not
+  the agent itself, and its create time still matches the snapshot: the
+  check and the suspend happen on one handle, so a reused PID cannot be hit.
+- "System children" means members of the app tree that ARE system processes
+  (system exe, session 0, unnameable). Skipping by PARENTAGE is deliberately
+  not done: nearly every user app is a child of explorer.exe, so that rule
+  would refuse to freeze anything.
+- Skipped processes (system/conhost/self/dead/PID-reuse) never fail the
+  freeze; OS errors do, via FreezeError, one per app, so the agent loop
+  can report them per app without stopping the rest.
+- A ledger entry is NEVER dropped because of a PID/create-time mismatch:
+  on freeze the full entry is written before anything is touched, and on
+  thaw a mismatched live process is left in the entry. Only confirmed-dead
+  PIDs are pruned, and only on the thaw path.
+- Freezing an already-frozen app raises instead of suspending twice: a
+  double suspend needs a double resume, which would strand the app frozen.
+"""
+from __future__ import annotations
+
+import logging
+import os
+import time
+from dataclasses import dataclass
+from typing import Callable, Protocol
+
+from freezer.contracts import AppSnapshot, LedgerEntry, ProcRef
+from freezer.ledger import Ledger, LedgerTampered, freeze_locked
+
+log = logging.getLogger(__name__)
+
+# Create-time match tolerance (seconds). B's sensor reads the same FILETIME
+# through psutil, whose float rounding can differ from ours by microseconds,
+# so exact == would false-positive PID reuse. A reused PID colliding within
+# this window is the accepted residual risk.
+CTIME_TOL_S = 2.0
+
+
+def _ctimes_match(a: float, b: float) -> bool:
+    return abs(a - b) <= CTIME_TOL_S
+
+# Last-line guard: policy (B) decides what may freeze, but the actuator never
+# suspends these even if asked. conhost.exe is a console window host: freezing
+# it would hang every console app's window, including our own.
+SYSTEM_EXES = frozenset({
+    "conhost.exe",
+    "csrss.exe", "winlogon.exe", "wininit.exe", "smss.exe", "services.exe",
+    "lsass.exe", "svchost.exe", "dwm.exe", "explorer.exe", "ctfmon.exe",
+    "fontdrvhost.exe", "msmpeng.exe", "securityhealthservice.exe",
+    "narrator.exe", "magnify.exe", "spoolsv.exe", "searchindexer.exe",
+    "searchhost.exe", "sihost.exe", "taskhostw.exe", "registry", "system",
+    "secure system", "memory compression",
+})
+
+
+class FreezeError(Exception):
+    """One app could not be (fully) frozen. The ledger entry is kept."""
+
+    def __init__(self, app_id: str, message: str, *,
+                 failures: dict[int, str] | None = None,
+                 skipped: dict[int, str] | None = None,
+                 entry: LedgerEntry | None = None) -> None:
+        super().__init__(f"{app_id}: {message}")
+        self.app_id = app_id
+        self.failures = failures or {}  # pid -> OS error, needs attention
+        self.skipped = skipped or {}    # pid -> reason, deliberately untouched
+        self.entry = entry
+
+
+@dataclass
+class ProcInfo:
+    pid: int
+    exe: str            # lowercased basename, "" if unknown
+    create_time: float  # unix time, guards against PID reuse
+    session_id: int = 1
+
+
+class OsLayer(Protocol):
+    def resolve(self, pid: int) -> ProcInfo | None:
+        """Live process info, or None if the PID is dead or unreachable."""
+    def suspend_verified(self, pid: int, expected_ctime: float) -> bool:
+        """Suspend only if the PID is live with a matching create time.
+
+        The check and the suspend happen on one handle, so a PID reused in
+        between cannot be hit. True = suspended; False = skipped (dead or
+        reused). Genuine failures raise OSError.
+        """
+    def confirmed_dead(self, pid: int) -> bool:
+        """True only if the PID is provably dead (exit confirmed).
+
+        Access-denied (live but protected) returns False: a process we
+        cannot open must be kept in the ledger, never pruned as if dead.
+        """
+    def resume(self, pid: int) -> None: ...
+    def trim(self, pid: int) -> None: ...
+    def working_set_mb(self, pid: int) -> float: ...
+    def minimize(self, pids: set[int]) -> int: ...
+    def restore(self, pids: set[int]) -> int: ...
+
+
+# ---- real Windows backend ------------------------------------------------------
+
+class WindowsOs:
+    """OsLayer over ntdll/psapi/user32 via ctypes. No admin, no drivers."""
+
+    PROCESS_SUSPEND_RESUME = 0x0800
+    PROCESS_SET_QUOTA = 0x0100
+    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+
+    def __init__(self) -> None:
+        if os.name != "nt":
+            raise OSError("WindowsOs needs Windows")
+        import ctypes
+        from ctypes import wintypes
+
+        self._ctypes = ctypes
+        self._w = wintypes
+        ntdll = ctypes.WinDLL("ntdll", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        u32 = ctypes.WinDLL("user32", use_last_error=True)
+
+        ntdll.NtSuspendProcess.argtypes = [wintypes.HANDLE]
+        ntdll.NtSuspendProcess.restype = ctypes.c_long
+        ntdll.NtResumeProcess.argtypes = [wintypes.HANDLE]
+        ntdll.NtResumeProcess.restype = ctypes.c_long
+        psapi.EmptyWorkingSet.argtypes = [wintypes.HANDLE]
+        psapi.EmptyWorkingSet.restype = wintypes.BOOL
+        k32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        k32.OpenProcess.restype = wintypes.HANDLE
+        k32.CloseHandle.argtypes = [wintypes.HANDLE]
+        k32.CloseHandle.restype = wintypes.BOOL
+        k32.QueryFullProcessImageNameW.argtypes = [
+            wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR,
+            ctypes.POINTER(wintypes.DWORD)]
+        k32.QueryFullProcessImageNameW.restype = wintypes.BOOL
+        k32.ProcessIdToSessionId.argtypes = [wintypes.DWORD, ctypes.POINTER(wintypes.DWORD)]
+        k32.ProcessIdToSessionId.restype = wintypes.BOOL
+
+        class _FILETIME(ctypes.Structure):
+            _fields_ = [("dwLowDateTime", wintypes.DWORD),
+                        ("dwHighDateTime", wintypes.DWORD)]
+        self._FILETIME = _FILETIME
+        k32.GetProcessTimes.argtypes = [wintypes.HANDLE] + [ctypes.POINTER(_FILETIME)] * 4
+        k32.GetProcessTimes.restype = wintypes.BOOL
+
+        class _PMC(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD)] + [
+                (n, ctypes.c_size_t) for n in (
+                    "PeakWorkingSetSize", "WorkingSetSize", "QuotaPeakPagedPoolUsage",
+                    "QuotaPagedPoolUsage", "QuotaPeakNonPagedPoolUsage",
+                    "QuotaNonPagedPoolUsage", "PagefileUsage", "PeakPagefileUsage")]
+        self._PMC = _PMC
+        psapi.GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_PMC), wintypes.DWORD]
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+
+        u32.EnumWindows.argtypes = [ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM),
+                                    wintypes.LPARAM]
+        u32.EnumWindows.restype = wintypes.BOOL
+        u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+        u32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        for name in ("IsWindowVisible", "IsIconic"):
+            getattr(u32, name).argtypes = [wintypes.HWND]
+            getattr(u32, name).restype = wintypes.BOOL
+        u32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+        u32.ShowWindow.restype = wintypes.BOOL
+
+        self._ntdll, self._psapi, self._k32, self._u32 = ntdll, psapi, k32, u32
+
+    def _open(self, pid: int, access: int):
+        h = self._k32.OpenProcess(access, False, pid)
+        if not h:
+            raise self._ctypes.WinError(self._ctypes.get_last_error())
+        return h
+
+    def _close(self, h) -> None:
+        self._k32.CloseHandle(h)
+
+    def _ctime_of(self, h) -> float:
+        ctypes = self._ctypes
+        created, exited, kern, user = (self._FILETIME() for _ in range(4))
+        if not self._k32.GetProcessTimes(
+                h, ctypes.byref(created), ctypes.byref(exited),
+                ctypes.byref(kern), ctypes.byref(user)):
+            raise OSError("GetProcessTimes failed")
+        ticks = (created.dwHighDateTime << 32) | created.dwLowDateTime
+        return ticks / 10_000_000 - 11_644_473_600
+
+    def resolve(self, pid: int) -> ProcInfo | None:
+        ctypes, wintypes = self._ctypes, self._w
+        try:
+            h = self._open(pid, self.PROCESS_QUERY_LIMITED_INFORMATION)
+        except OSError:
+            return None
+        try:
+            size = wintypes.DWORD(32768)
+            buf = ctypes.create_unicode_buffer(size.value)
+            if self._k32.QueryFullProcessImageNameW(h, 0, buf, ctypes.byref(size)):
+                exe = (buf.value.rsplit("\\", 1)[-1] or "").lower()
+            else:
+                exe = ""
+            try:
+                ctime = self._ctime_of(h)
+            except OSError:
+                return None
+            session = wintypes.DWORD(0)
+            if self._k32.ProcessIdToSessionId(pid, ctypes.byref(session)):
+                session_id = session.value
+            else:
+                session_id = 0  # fail closed: unknown session counts as system
+            return ProcInfo(pid, exe, ctime, session_id)
+        finally:
+            self._close(h)
+
+    def confirmed_dead(self, pid: int) -> bool:
+        try:
+            h = self._open(pid, self.PROCESS_QUERY_LIMITED_INFORMATION)
+        except OSError as e:
+            # 5 (access denied) = live but protected -> NOT dead. Anything
+            # else (87 = no such PID) means the PID is gone.
+            return getattr(e, "winerror", None) != 5
+        self._close(h)
+        return False
+
+    def suspend_verified(self, pid: int, expected_ctime: float) -> bool:
+        try:
+            h = self._open(pid, self.PROCESS_SUSPEND_RESUME
+                           | self.PROCESS_QUERY_LIMITED_INFORMATION)
+        except OSError:
+            if self.confirmed_dead(pid):
+                return False
+            raise
+        try:
+            try:
+                actual = self._ctime_of(h)
+            except OSError:
+                return False
+            if not _ctimes_match(actual, expected_ctime):
+                return False  # PID reused: this handle pins the stranger, suspend nothing
+            status = self._ntdll.NtSuspendProcess(h)
+            if status != 0:
+                raise OSError(f"NtSuspendProcess failed: status 0x{status & 0xFFFFFFFF:08X}")
+            return True
+        finally:
+            self._close(h)
+
+    def resume(self, pid: int) -> None:
+        h = self._open(pid, self.PROCESS_SUSPEND_RESUME)
+        try:
+            status = self._ntdll.NtResumeProcess(h)
+            if status != 0:
+                raise OSError(f"NtResumeProcess failed: status 0x{status & 0xFFFFFFFF:08X}")
+        finally:
+            self._close(h)
+
+    def trim(self, pid: int) -> None:
+        # EmptyWorkingSet needs QUERY rights next to SET_QUOTA (else error 5).
+        h = self._open(pid, self.PROCESS_SET_QUOTA | self.PROCESS_QUERY_LIMITED_INFORMATION)
+        try:
+            if not self._psapi.EmptyWorkingSet(h):
+                raise self._ctypes.WinError(self._ctypes.get_last_error())
+        finally:
+            self._close(h)
+
+    def working_set_mb(self, pid: int) -> float:
+        try:
+            h = self._open(pid, self.PROCESS_QUERY_LIMITED_INFORMATION)
+        except OSError:
+            return 0.0
+        try:
+            pmc = self._PMC()
+            pmc.cb = self._ctypes.sizeof(pmc)
+            if not self._psapi.GetProcessMemoryInfo(h, self._ctypes.byref(pmc), pmc.cb):
+                return 0.0
+            return pmc.WorkingSetSize / 1024 / 1024
+        finally:
+            self._close(h)
+
+    def _for_each_window(self, pids: set[int], want_iconic: bool, cmd: int) -> int:
+        ctypes, wintypes = self._ctypes, self._w
+        done = 0
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def cb(hwnd, _lparam):
+            nonlocal done
+            pid = wintypes.DWORD()
+            self._u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            try:
+                if (pid.value in pids and self._u32.IsWindowVisible(hwnd)
+                        and bool(self._u32.IsIconic(hwnd)) == want_iconic):
+                    self._u32.ShowWindow(hwnd, cmd)
+                    done += 1
+            except OSError:
+                pass  # window closed mid-enumeration
+            return True
+
+        self._u32.EnumWindows(cb, 0)  # synchronous: local cb stays alive for the call
+        return done
+
+    def minimize(self, pids: set[int]) -> int:
+        return self._for_each_window(pids, want_iconic=False, cmd=6)  # SW_MINIMIZE
+
+    def restore(self, pids: set[int]) -> int:
+        return self._for_each_window(pids, want_iconic=True, cmd=9)  # SW_RESTORE
+
+
+# ---- the actuator ----------------------------------------------------------------
+
+@dataclass
+class RestoreReport:
+    app_ids: list[str]
+    restored_gb: float
+    seconds: float
+
+
+class RealActuator:
+    """contracts.Actuator over real processes and the signed ledger."""
+
+    def __init__(self, os_layer: OsLayer | None = None, ledger: Ledger | None = None,
+                 clock: Callable[[], float] | None = None) -> None:
+        self._os = os_layer or WindowsOs()
+        self._ledger = ledger or Ledger()
+        self._clock = clock or time.time
+        self.last_report: RestoreReport | None = None
+
+    def _skip_reason(self, info: ProcInfo) -> str | None:
+        if info.pid == os.getpid():
+            return "self"
+        if not info.exe:
+            return "unknown_exe"  # fail closed: never suspend what we cannot name
+        if info.exe in SYSTEM_EXES:
+            return "system_exe"
+        if info.session_id == 0:
+            return "system_session"
+        return None
+
+    def _safe_resolve(self, pid: int) -> ProcInfo | None:
+        try:
+            return self._os.resolve(pid)
+        except OSError:
+            return None
+
+    def _ws_total(self, procs: list[ProcRef]) -> float:
+        total = 0.0
+        for p in procs:
+            try:
+                total += self._os.working_set_mb(p.pid)
+            except OSError:
+                pass
+        return total
+
+    # -- contracts.Actuator --------------------------------------------------------
+
+    def freeze(self, app: AppSnapshot, session: str) -> LedgerEntry:
+        with freeze_locked():
+            return self._freeze_locked(app, session)
+
+    def _freeze_locked(self, app: AppSnapshot, session: str) -> LedgerEntry:
+        entry = LedgerEntry(app.app_id, list(app.procs), self._clock(), 0.0, session)
+        existing = self._ledger.add_if_absent(entry)  # FIRST, atomically
+        if existing is not None:
+            raise FreezeError(app.app_id, "already frozen", entry=existing)
+        before_mb = self._ws_total(app.procs)
+        try:
+            self._os.minimize({p.pid for p in app.procs})
+        except Exception:  # noqa: BLE001 - cosmetic only, never fails a freeze
+            log.debug("minimize failed for %s", app.app_id, exc_info=True)
+        failures: dict[int, str] = {}
+        skipped: dict[int, str] = {}
+        for pref in app.procs:
+            info = self._safe_resolve(pref.pid)
+            if info is None:
+                if self._os.confirmed_dead(pref.pid):
+                    skipped[pref.pid] = "exited"
+                else:
+                    failures[pref.pid] = "cannot open process"
+                continue
+            reason = self._skip_reason(info)
+            if reason is not None:
+                skipped[pref.pid] = reason
+                continue
+            try:
+                if not self._os.suspend_verified(pref.pid, pref.create_time):
+                    log.warning("freeze: PID reuse on %s pid=%d, keeping ledger entry",
+                                app.app_id, pref.pid)
+                    skipped[pref.pid] = "pid_reuse"
+                    continue
+                self._os.trim(pref.pid)
+            except OSError as e:
+                failures[pref.pid] = str(e)
+        after_mb = self._ws_total(app.procs)
+        entry.freed_mb = max(before_mb - after_mb, 0.0)
+        self._ledger.update(entry)
+        if failures:
+            raise FreezeError(app.app_id, f"{len(failures)} process(es) failed",
+                              failures=failures, skipped=skipped, entry=entry)
+        log.info("froze %s: %.0f MB, %d skipped (%s)",
+                 app.app_id, entry.freed_mb, len(skipped),
+                 ",".join(sorted(set(skipped.values()))) or "none")
+        return entry
+
+    def _resume_entry(self, entry: LedgerEntry) -> list[ProcRef]:
+        """Resume every verifiable process; return the procs that must stay listed."""
+        remaining: list[ProcRef] = []
+        resumed_pids: set[int] = set()
+        for pref in entry.procs:
+            info = self._safe_resolve(pref.pid)
+            if info is None:
+                if self._os.confirmed_dead(pref.pid):
+                    continue  # dead: nothing to resume, prune from the entry
+                log.warning("thaw: %s pid=%d unreachable but not confirmed dead, keeping entry",
+                            entry.app_id, pref.pid)
+                remaining.append(pref)
+                continue
+            if not _ctimes_match(info.create_time, pref.create_time):
+                log.warning("thaw: PID reuse on %s pid=%d, keeping ledger entry",
+                            entry.app_id, pref.pid)
+                remaining.append(pref)  # NEVER drop an entry on a mismatch
+                continue
+            try:
+                self._os.resume(pref.pid)
+                resumed_pids.add(pref.pid)
+            except OSError as e:
+                log.warning("thaw: resume failed on %s pid=%d (%s), keeping entry",
+                            entry.app_id, pref.pid, e)
+                remaining.append(pref)
+        try:
+            self._os.restore(resumed_pids)  # only windows we actually minimized
+        except Exception:  # noqa: BLE001 - cosmetic only
+            log.debug("restore failed for %s", entry.app_id, exc_info=True)
+        return remaining
+
+    def thaw(self, app_id: str) -> None:
+        with freeze_locked():
+            entry = self._ledger.load().get(app_id)
+            if entry is None:
+                return
+            if self._ledger.tampered:
+                raise LedgerTampered("single thaw refused: ledger tampered, use thaw_all")
+            remaining = self._resume_entry(entry)
+            if remaining:
+                entry.procs = remaining
+                self._ledger.update(entry)
+            else:
+                self._ledger.remove(app_id)
+
+    def thaw_all(self, snaps: list[AppSnapshot] | None = None) -> list[str]:
+        """Resume everything in the ledger. Also runs on agent startup.
+
+        Order: most-recently-used first when snapshots are given (closest to
+        the spec's foreground-first/MRU order); otherwise oldest-frozen first.
+        True freeze-time foreground order needs the sensor at freeze time and
+        is a follow-up with B, not inventable from pid+ctime alone.
+        """
+        with freeze_locked():
+            return self._thaw_all_locked(snaps)
+
+    def _thaw_all_locked(self, snaps: list[AppSnapshot] | None) -> list[str]:
+        t0 = self._clock()
+        loaded = self._ledger.load()
+        if snaps is not None:
+            idle = {s.app_id: s.last_focus_s for s in snaps}
+            ordered = sorted(loaded.values(),
+                             key=lambda e: idle.get(e.app_id, float("inf")))
+        else:
+            ordered = sorted(loaded.values(), key=lambda e: e.frozen_at)
+        leftovers: dict[str, LedgerEntry] = {}
+        thawed: list[str] = []
+        freed_mb = 0.0
+        for entry in ordered:
+            remaining = self._resume_entry(entry)
+            if remaining:
+                entry.procs = remaining
+                leftovers[entry.app_id] = entry
+            else:
+                thawed.append(entry.app_id)
+                freed_mb += entry.freed_mb
+        self._ledger.save_thawed(leftovers)
+        seconds = max(self._clock() - t0, 0.0)
+        self.last_report = RestoreReport(thawed, freed_mb / 1024, seconds)
+        log.info("restored %.1f GB in %.1f s (%d apps)", freed_mb / 1024, seconds, len(thawed))
+        return thawed
+
+    def frozen(self) -> list[LedgerEntry]:
+        return list(self._ledger.load().values())
+
+
+def startup_recovery(actuator: RealActuator | None = None) -> list[str]:
+    """Resume everything left frozen by a previous run. Runs on agent startup."""
+    thawed = (actuator or RealActuator()).thaw_all()
+    if thawed:
+        log.warning("startup_recovery: resumed %d app(s) left frozen: %s", len(thawed), thawed)
+    return thawed

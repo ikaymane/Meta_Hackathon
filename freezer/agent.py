@@ -28,6 +28,7 @@ from typing import Any, Callable, Literal, Protocol
 from freezer import sessions
 from freezer.contracts import (Actuator, AppSnapshot, Blocked, Decision, FocusSession,
                                LedgerEntry, Plan, PolicyResult, PressureEvent)
+from freezer.watchdog import beat
 from freezer.planner import DEFAULT_EFFORT, DEFAULT_MODEL, SKIPPED_REASON, plan
 
 log = logging.getLogger(__name__)
@@ -230,9 +231,17 @@ class FocusAgent:
 
     # ---- entry points ------------------------------------------------------
 
+    @staticmethod
+    def _beat() -> None:
+        try:
+            beat()
+        except Exception:  # noqa: BLE001 - heartbeat must never break the loop
+            log.debug("heartbeat failed", exc_info=True)
+
     def focus(self, task: str | None, session_name: str | None = None) -> Outcome:
         """User: "I'm fixing the login bug", or "start thesis session" (task=None keeps the
         session's saved task; a task replaces it)."""
+        self._beat()
         if not session_name and not (task and task.strip()):
             raise ValueError("say what you're working on, or name a session")
         session = sessions.start(session_name, task) if session_name else None
@@ -254,6 +263,7 @@ class FocusAgent:
 
     def on_pressure(self, event: PressureEvent) -> Outcome:
         """Guardian (A): RAM stayed high. Planner ranks the guardian's candidates."""
+        self._beat()
         session = sessions.get(self.session_name) if self.session_name else None
         live = self._live(self.sensor.snapshot())
         idle = {s.app_id for s in live if s.last_focus_s >= GUARDIAN_MIN_IDLE_S and not s.is_foreground}
@@ -286,6 +296,7 @@ class FocusAgent:
 
     def done(self) -> list[str]:
         """User: "I'm done". Thaw everything; works even if the planner is down."""
+        self._beat()
         self.session_name = None
         return self.actuator.thaw_all()
 
