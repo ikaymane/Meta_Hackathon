@@ -42,8 +42,10 @@ def beat(clock: Callable[[], float] = time.time) -> None:
 def read_beat() -> tuple[int, float] | None:
     try:
         doc = json.loads(heartbeat_path().read_text(encoding="utf-8"))
+        if not isinstance(doc, dict):
+            return None
         return int(doc["pid"]), float(doc["ts"])
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, TypeError):
         return None
 
 
@@ -124,8 +126,10 @@ class PanicKey:
         u32.PostThreadMessageW.argtypes = [ctypes.c_ulong, ctypes.c_uint,
                                            ctypes.c_size_t, ctypes.c_size_t]
         u32.PostThreadMessageW.restype = ctypes.c_int
-        assert self._thread_id is not None
-        u32.PostThreadMessageW(self._thread_id, self.WM_QUIT, 0, 0)
+        if self._thread_id is None:
+            raise RuntimeError("panic hotkey thread never started")
+        if not u32.PostThreadMessageW(self._thread_id, self.WM_QUIT, 0, 0):
+            raise ctypes.WinError(ctypes.get_last_error())
         t.join(timeout_s)
         if t.is_alive():
             raise TimeoutError("panic hotkey thread did not stop")
@@ -160,7 +164,13 @@ class PanicKey:
                 u32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 0)  # create the queue
                 self._thread_id = threading.get_native_id()
                 self._ready.set()
-                while u32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
+                while True:
+                    rc = u32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+                    if rc == 0:
+                        break  # WM_QUIT from stop()
+                    if rc == -1:
+                        log.error("panic hotkey message loop failed, hotkey dead")
+                        break
                     if msg.message == self.WM_HOTKEY:
                         try:
                             self._callback()

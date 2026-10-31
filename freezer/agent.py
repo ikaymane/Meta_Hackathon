@@ -14,11 +14,15 @@ Invariants:
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Protocol
 
 from freezer import sessions
+from freezer.watchdog import beat
+
+log = logging.getLogger(__name__)
 from freezer.contracts import (Actuator, AppSnapshot, Blocked, Decision, FocusSession,
                                LedgerEntry, Plan, PolicyResult, PressureEvent)
 from freezer.planner import DEFAULT_MODEL, plan
@@ -51,6 +55,8 @@ class Proposal:
 class FreezeFailure:
     app_id: str
     error: str  # human-readable; shown on the card / in logs
+    kind: str = "freeze_error"  # machine-readable: already_frozen, rate_limited,
+                                # not_in_snapshot, freeze_error
 
 
 @dataclass
@@ -109,7 +115,10 @@ class FocusAgent:
         if proposal.session and proposal.source == "user":
             for app_id in allowed:
                 if app_id not in approved_set:  # user unticked it: remember for next time
-                    sessions.add_rule(proposal.session, app_id, "keep")
+                    try:
+                        sessions.add_rule(proposal.session, app_id, "keep")
+                    except ValueError:
+                        log.warning("ignoring bad app_id from planner: %r", app_id)
         by_id = {s.app_id: s for s in snaps}
         frozen_ids = {e.app_id for e in self.actuator.frozen()}  # re-check just before freezing
         frozen: list[LedgerEntry] = []
@@ -119,28 +128,37 @@ class FocusAgent:
                 continue
             snap = by_id.get(app_id)
             if snap is None:
-                failed.append(FreezeFailure(app_id, "not in snapshot"))
+                failed.append(FreezeFailure(app_id, "not in snapshot", "not_in_snapshot"))
                 continue
             if app_id in frozen_ids:
-                failed.append(FreezeFailure(app_id, "already frozen"))
+                failed.append(FreezeFailure(app_id, "already frozen", "already_frozen"))
                 continue
             now = self._clock()
             self._freeze_times = [t for t in self._freeze_times if now - t < 60.0]
             if len(self._freeze_times) >= self.max_freezes_per_min:
-                failed.append(FreezeFailure(app_id, "rate limited: too many freezes this minute"))
+                failed.append(FreezeFailure(app_id, "rate limited: too many freezes this minute",
+                                            "rate_limited"))
                 continue
             self._freeze_times.append(now)
             try:
                 frozen.append(self.actuator.freeze(snap, proposal.session or ""))
                 frozen_ids.add(app_id)
             except Exception as e:  # noqa: BLE001 - one bad app must not stop the rest
-                failed.append(FreezeFailure(app_id, f"{type(e).__name__}: {e}"))
+                failed.append(FreezeFailure(app_id, f"{type(e).__name__}: {e}", "freeze_error"))
         return Outcome(proposal=proposal, frozen=frozen, failed=failed)
 
     # ---- entry points ------------------------------------------------------
 
+    @staticmethod
+    def _beat() -> None:
+        try:
+            beat()
+        except Exception:  # noqa: BLE001 - heartbeat must never break the loop
+            log.debug("heartbeat failed", exc_info=True)
+
     def focus(self, task: str, session_name: str | None = None) -> Outcome:
         """User: "I'm fixing the login bug" or "start thesis session"."""
+        self._beat()
         session = sessions.start(session_name, task) if session_name else None
         self.session_name = session.name if session else None
         snaps = self.sensor.snapshot()
@@ -156,6 +174,7 @@ class FocusAgent:
 
     def on_pressure(self, event: PressureEvent) -> Outcome:
         """Guardian (A): RAM stayed high. Planner ranks the guardian's candidates."""
+        self._beat()
         session = sessions.get(self.session_name) if self.session_name else None
         snaps = self.sensor.snapshot()
         frozen_ids = {e.app_id for e in self.actuator.frozen()}
@@ -174,6 +193,7 @@ class FocusAgent:
 
     def done(self) -> list[str]:
         """User: "I'm done". Thaw everything; works even if the planner is down."""
+        self._beat()
         self.session_name = None
         return self.actuator.thaw_all()
 

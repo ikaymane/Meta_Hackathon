@@ -15,12 +15,15 @@
 """
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Callable
 
 from freezer.contracts import AppSnapshot, PressureEvent
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -75,7 +78,9 @@ class Guardian:
         """D's UI calls this when the user dismisses the guardian card.
 
         Starts the cooldown: no new card for cooldown_s. Tracking resets,
-        so after the cooldown pressure must sustain again from zero.
+        so after the cooldown pressure must sustain again from zero. Note the
+        guardian also stays disarmed until RAM dips below lo_pct: refiring
+        needs the dip plus a fresh sustain, not sustain alone.
         """
         self._cooldown_until = self._clock() + self._config.cooldown_s
         self._above_since = None
@@ -84,7 +89,11 @@ class Guardian:
              frozen_ids: Collection[str] = ()) -> PressureEvent | None:
         """Check RAM once. Returns a PressureEvent exactly when a card is due."""
         now = self._clock()
-        ram = float(self._ram())
+        try:
+            ram = float(self._ram())
+        except Exception:  # noqa: BLE001 - a failed reading is not pressure
+            log.debug("RAM reading failed", exc_info=True)
+            return None
         cfg = self._config
         if ram < cfg.lo_pct:
             self._armed = True  # re-arm even mid-cooldown: pressure is gone
@@ -111,3 +120,20 @@ class Guardian:
                         reverse=True)
         return PressureEvent(ram_pct=ram, sustained_s=sustained,
                              candidates=[s.app_id for s in ranked])
+
+
+def run(guardian: Guardian, snapshots_fn: Callable[[], list[AppSnapshot]],
+        on_event: Callable[[PressureEvent], None], *, interval_s: float = 5.0,
+        frozen_fn: Callable[[], Collection[str]] | None = None,
+        stop: Callable[[], bool] | None = None) -> None:
+    """Poll loop for D's UI thread or a guardian process. stop() ends it (tests)."""
+    while True:
+        try:
+            event = guardian.poll(snapshots_fn(), frozen_fn() if frozen_fn else ())
+            if event is not None:
+                on_event(event)
+        except Exception:  # noqa: BLE001 - the guardian must never die
+            log.exception("guardian poll failed")
+        if stop is not None and stop():
+            return
+        time.sleep(interval_s)

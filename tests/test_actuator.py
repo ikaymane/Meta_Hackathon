@@ -18,36 +18,51 @@ class FakeProc:
 
 
 class FakeOs:
-    """In-memory process table. Touches nothing real."""
+    """In-memory process table. Touches nothing real. Lists record successes."""
 
     def __init__(self, procs):
         self.procs = {p.pid: p for p in procs}
         self.suspended, self.resumed, self.trimmed = [], [], []
         self.minimized, self.restored = [], []
+        self.denied = set()  # live but unreachable, like protected processes
         self.fail_suspend, self.fail_resume, self.fail_trim = set(), set(), set()
 
     def resolve(self, pid):
         p = self.procs.get(pid)
-        if p is None or not p.alive:
+        if p is None or not p.alive or pid in self.denied:
             return None
         return ProcInfo(pid, p.exe, p.ctime, p.session)
 
-    def suspend(self, pid):
-        self.suspended.append(pid)
+    def confirmed_dead(self, pid):
+        if pid in self.denied:
+            return False
+        p = self.procs.get(pid)
+        return p is None or not p.alive
+
+    def suspend_verified(self, pid, expected_ctime):
+        p = self.procs.get(pid)
+        if p is None or not p.alive:
+            return False
+        if pid in self.denied:
+            raise OSError("access denied")
+        if abs(p.ctime - expected_ctime) > 2.0:
+            return False
         if pid in self.fail_suspend:
             raise OSError("access denied")
-        self.procs[pid].suspended = True
+        p.suspended = True
+        self.suspended.append(pid)
+        return True
 
     def resume(self, pid):
-        self.resumed.append(pid)
         if pid in self.fail_resume:
             raise OSError("access denied")
+        self.resumed.append(pid)
         self.procs[pid].suspended = False
 
     def trim(self, pid):
-        self.trimmed.append(pid)
         if pid in self.fail_trim:
             raise OSError("access denied")
+        self.trimmed.append(pid)
         self.procs[pid].ws_mb = 0.0
 
     def working_set_mb(self, pid):
@@ -135,7 +150,7 @@ def test_freeze_reports_each_failure_but_freezes_the_rest():
     with pytest.raises(FreezeError) as ei:
         act.freeze(snap("a.exe", ProcRef(11, 100.0), ProcRef(12, 100.0)), "s")
     assert list(ei.value.failures) == [11]
-    assert fake.suspended == [11, 12]  # attempt order kept, failure didn't stop proc 12
+    assert fake.suspended == [12]  # proc 12 still frozen; only successes recorded
     assert set(Ledger().load()) == {"a.exe"}
 
 
@@ -223,3 +238,83 @@ def test_windows_os_can_resolve_self():
     assert info is not None and info.pid == os.getpid()
     assert info.exe.endswith(".exe") and info.create_time > 0
     assert WindowsOs().working_set_mb(os.getpid()) > 0
+    assert WindowsOs().confirmed_dead(os.getpid()) is False
+    assert WindowsOs().confirmed_dead(999999) is True
+
+
+def test_concurrent_freeze_of_same_app_suspends_once():
+    import threading
+
+    fake = FakeOs([FakeProc(11)])
+    act = RealActuator(os_layer=fake, ledger=Ledger())
+    snapshot = snap("a.exe", ProcRef(11, 100.0))
+    barrier = threading.Barrier(2)
+    outcomes = []
+
+    def worker():
+        barrier.wait(timeout=30)
+        try:
+            act.freeze(snapshot, "s")
+            outcomes.append("ok")
+        except FreezeError as e:
+            outcomes.append("already" if "already frozen" in str(e) else "other")
+
+    threads = [threading.Thread(target=worker) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(60)
+        assert not t.is_alive()
+    assert sorted(outcomes) == ["already", "ok"]
+    assert fake.suspended == [11]  # no double suspend (would need double resume)
+    assert set(Ledger().load()) == {"a.exe"}
+
+
+def test_create_time_within_tolerance_still_matches():
+    fake = FakeOs([FakeProc(11, ctime=100.4)])  # psutil-style float wobble
+    act = RealActuator(os_layer=fake, ledger=Ledger())
+    act.freeze(snap("a.exe", ProcRef(11, 100.0)), "s")
+    assert fake.suspended == [11]
+    act.thaw("a.exe")
+    assert fake.resumed == [11] and Ledger().load() == {}
+
+
+def test_freeze_reports_unreachable_live_process_as_failure():
+    fake = FakeOs([FakeProc(11), FakeProc(12)])
+    fake.denied.add(12)  # live but protected
+    act = RealActuator(os_layer=fake, ledger=Ledger())
+    with pytest.raises(FreezeError) as ei:
+        act.freeze(snap("a.exe", ProcRef(11, 100.0), ProcRef(12, 100.0)), "s")
+    assert list(ei.value.failures) == [12]
+    assert fake.suspended == [11]
+
+
+def test_thaw_keeps_unreachable_live_process_listed():
+    fake = FakeOs([FakeProc(11)])
+    act = RealActuator(os_layer=fake, ledger=Ledger())
+    act.freeze(snap("a.exe", ProcRef(11, 100.0)), "s")
+    fake.denied.add(11)  # protected after the fact, still live
+    act.thaw("a.exe")
+    assert fake.resumed == []
+    assert [p.pid for p in Ledger().load()["a.exe"].procs] == [11]
+
+
+def test_freeze_skips_unnameable_exe():
+    fake = FakeOs([FakeProc(11, exe="")])  # fail closed: never suspend the unknown
+    act = RealActuator(os_layer=fake, ledger=Ledger())
+    act.freeze(snap("a.exe", ProcRef(11, 100.0)), "s")
+    assert fake.suspended == []
+
+
+def test_thaw_all_prefers_mru_when_snapshots_given():
+    fake = FakeOs([FakeProc(11, ws_mb=100.0), FakeProc(12, ws_mb=100.0)])
+    clock = FakeClock()
+    act = RealActuator(os_layer=fake, ledger=Ledger(), clock=clock)
+    clock.now = 30.0
+    act.freeze(snap("old.exe", ProcRef(11, 100.0)), "s")  # frozen first...
+    clock.now = 10.0
+    act.freeze(snap("new.exe", ProcRef(12, 100.0)), "s")  # ...but used most recently
+    snaps = [AppSnapshot("old.exe", "old", [], [], 0.0, 100.0, False, False, False, False),
+             AppSnapshot("new.exe", "new", [], [], 0.0, 1.0, False, False, False, False)]
+    assert act.thaw_all(snaps) == ["new.exe", "old.exe"]
+    assert act.last_report is not None and act.last_report.app_ids == ["new.exe", "old.exe"]

@@ -1,4 +1,7 @@
 """Agent loop safety: per-app failures, frozen re-check, freeze rate limit."""
+import os
+
+from freezer import sessions, watchdog
 from freezer.agent import Decision, FocusAgent, Proposal
 from freezer.contracts import Plan, PolicyResult
 from freezer.mocks import MockActuator, MockSensor, mock_policy
@@ -84,3 +87,26 @@ def test_app_missing_from_snapshot_fails_cleanly():
     out = agent._execute(proposal, sensor.snapshot(), ["ghost.exe"])
     assert out.frozen == []
     assert [(f.app_id, f.error) for f in out.failed] == [("ghost.exe", "not in snapshot")]
+    assert out.failed[0].kind == "not_in_snapshot"
+
+
+def test_bad_unticked_app_id_does_not_abort_freeze():
+    sessions.start("safety-x", "t")
+    sensor = MockSensor("login_bug")
+    agent = FocusAgent(sensor, mock_policy, MockActuator(), lambda p: ["steam.exe"],
+                       client=FakeClient())
+    proposal = Proposal(plan=Plan("t", [], "m"),
+                        to_freeze=[Decision("steam.exe", "freeze", "x"),
+                                   Decision("bad\nid", "freeze", "y")],
+                        blocked=[], keep=[], free_mb=0, disconnects=[], session="safety-x")
+    out = agent._execute(proposal, sensor.snapshot(), ["steam.exe"])
+    assert [e.app_id for e in out.frozen] == ["steam.exe"]
+
+
+def test_loop_writes_heartbeat():
+    sensor = MockSensor("login_bug")
+    agent = FocusAgent(sensor, mock_policy, MockActuator(), approve_all,
+                       client=FakeClient(freezing(sensor, {"steam.exe"})))
+    agent.focus("t")
+    pid, _ts = watchdog.read_beat()
+    assert pid == os.getpid()

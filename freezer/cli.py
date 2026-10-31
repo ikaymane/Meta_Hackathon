@@ -8,6 +8,8 @@
 
 Process discovery here is CLI plumbing (find PIDs by exe name), not a
 replacement for B's sensor, which owns app grouping and idle/audio state.
+`ff freeze` bypasses the consent card and (unless passed a policy) B's policy:
+it is a team testing tool, and the agent loop remains the enforced path.
 """
 from __future__ import annotations
 
@@ -16,11 +18,13 @@ import datetime
 import logging
 import os
 import sys
-from typing import Sequence
+from typing import Callable, Sequence
 
-from freezer.actuator import FreezeError, RealActuator
-from freezer.contracts import AppSnapshot, ProcRef
+from freezer.actuator import FreezeError, RealActuator, startup_recovery
+from freezer.contracts import AppSnapshot, PolicyResult, ProcRef
 from freezer.ledger import LedgerTampered
+
+Policy = Callable[[list[str], list[AppSnapshot]], PolicyResult] | None
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +64,7 @@ def find_pids_by_exe(exe_name: str) -> list[ProcRef]:
     k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32)]
     k32.Process32NextW.restype = wintypes.BOOL
     k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    k32.CloseHandle.restype = wintypes.BOOL
 
     want = exe_name.lower()
     pids: list[int] = []
@@ -100,7 +105,7 @@ def _snapshot_for(app_id: str, refs: list[ProcRef]) -> AppSnapshot:
     return AppSnapshot(app_id, app_id, refs, [], total_mb, 0.0, False, False, False, False)
 
 
-def cmd_freeze(args: argparse.Namespace, actuator: RealActuator) -> int:
+def cmd_freeze(args: argparse.Namespace, actuator: RealActuator, policy: Policy = None) -> int:
     if args.pids:
         if not args.app:
             print("ff freeze --pids needs --app <app_id>", file=sys.stderr)
@@ -130,8 +135,15 @@ def cmd_freeze(args: argparse.Namespace, actuator: RealActuator) -> int:
                 info = None
             fixed.append(ProcRef(r.pid, info.create_time if info else 0.0))
         refs = fixed
+    snap = _snapshot_for(app_id, refs)
+    if policy is not None:
+        verdict = policy([app_id], [snap])
+        if app_id not in verdict.allowed:
+            reason = next((b.rule for b in verdict.blocked if b.app_id == app_id), "blocked")
+            print(f"ff: policy refused {app_id}: {reason}", file=sys.stderr)
+            return 1
     try:
-        entry = actuator.freeze(_snapshot_for(app_id, refs), args.session or "")
+        entry = actuator.freeze(snap, args.session or "")
     except LedgerTampered as e:
         print(f"ff: refused: {e}", file=sys.stderr)
         return 1
@@ -146,11 +158,7 @@ def cmd_freeze(args: argparse.Namespace, actuator: RealActuator) -> int:
 
 def cmd_thaw(args: argparse.Namespace, actuator: RealActuator) -> int:
     if args.all:
-        try:
-            ids = actuator.thaw_all()
-        except LedgerTampered as e:  # pragma: no cover - thaw_all allows tamper mode
-            print(f"ff: {e}", file=sys.stderr)
-            return 1
+        ids = actuator.thaw_all()  # thaw_all is allowed even in tamper mode
         report = getattr(actuator, "last_report", None)
         if report is not None:
             print(f"restored {report.restored_gb:.1f} GB in {report.seconds:.1f} s "
@@ -160,12 +168,25 @@ def cmd_thaw(args: argparse.Namespace, actuator: RealActuator) -> int:
         for app_id in ids:
             print(f"  {app_id}")
         return 0
+    if args.app_id not in {e.app_id for e in actuator.frozen()}:
+        print(f"{args.app_id} is not frozen (nothing to do)")
+        return 0
     try:
         actuator.thaw(args.app_id)
     except LedgerTampered as e:
         print(f"ff: {e}", file=sys.stderr)
         return 1
     print(f"thawed {args.app_id}")
+    return 0
+
+
+def cmd_recover(args: argparse.Namespace, actuator: RealActuator) -> int:
+    """Resume apps a previous run left frozen (crash recovery)."""
+    del args
+    ids = startup_recovery(actuator)
+    print(f"recovered {len(ids)} app(s) left frozen by a previous run")
+    for app_id in ids:
+        print(f"  {app_id}")
     return 0
 
 
@@ -194,10 +215,11 @@ def build_parser() -> argparse.ArgumentParser:
     th.add_argument("app_id", nargs="?", help="app_id to thaw")
     th.add_argument("--all", action="store_true", help="thaw everything in the ledger")
     sub.add_parser("list", help="show frozen apps")
+    sub.add_parser("recover", help="resume apps left frozen by a previous run")
     return ap
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None, *, policy: Policy = None) -> int:
     logging.basicConfig(level=logging.WARNING)
     args = build_parser().parse_args(argv)
     if args.cmd == "freeze" and args.pids:
@@ -209,15 +231,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.pids:
             print("ff: --pids needs at least one PID", file=sys.stderr)
             return 2
+    if args.cmd == "thaw" and not args.all and not args.app_id:
+        print("ff thaw needs an <app_id> or --all", file=sys.stderr)
+        return 2
     actuator = build_actuator()
-    if args.cmd == "freeze":
-        return cmd_freeze(args, actuator)
-    if args.cmd == "thaw":
-        if not args.all and not args.app_id:
-            print("ff thaw needs an <app_id> or --all", file=sys.stderr)
-            return 2
-        return cmd_thaw(args, actuator)
-    return cmd_list(args, actuator)
+    try:
+        if args.cmd == "freeze":
+            return cmd_freeze(args, actuator, policy)
+        if args.cmd == "thaw":
+            return cmd_thaw(args, actuator)
+        if args.cmd == "recover":
+            return cmd_recover(args, actuator)
+        return cmd_list(args, actuator)
+    except TimeoutError as e:
+        print(f"ff: ledger busy, try again: {e}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

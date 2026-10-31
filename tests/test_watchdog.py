@@ -52,6 +52,14 @@ def test_run_watchdog_checks_once_then_stops():
     assert act.thaw_all_calls == 1
 
 
+@pytest.mark.parametrize("body", ["[]", "null", '{"pid": "x"}'])
+def test_malformed_heartbeat_is_ignored(body):
+    p = watchdog.heartbeat_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(body, encoding="utf-8")
+    assert watchdog.check(CountingActuator()) is False
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only hotkey")
 def test_panic_key_lifecycle():
     key = PanicKey(lambda: None)

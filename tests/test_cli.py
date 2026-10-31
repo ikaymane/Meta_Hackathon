@@ -71,6 +71,35 @@ def test_thaw_needs_target(actuator):
     assert cli.main(["thaw"]) == 2
 
 
+def test_thaw_unknown_app_says_nothing_to_do(actuator, capsys):
+    assert cli.main(["thaw", "ghost.exe"]) == 0
+    assert "nothing to do" in capsys.readouterr().out
+
+
+def test_recover_thaws_leftovers(actuator, capsys):
+    cli.main(["freeze", "--pids", "1", "--app", "a.exe"])
+    assert cli.main(["recover"]) == 0
+    assert "recovered 1" in capsys.readouterr().out
+
+
+def test_freeze_policy_block_freezes_nothing(actuator, capsys):
+    from freezer.contracts import Blocked, PolicyResult
+    policy = lambda ids, snaps: PolicyResult(  # noqa: E731
+        allowed=[], blocked=[Blocked(i, "foreground") for i in ids])
+    assert cli.main(["freeze", "--pids", "1", "--app", "a.exe"], policy=policy) == 1
+    assert "policy refused" in capsys.readouterr().err
+    assert actuator.freeze_calls == []
+
+
+def test_ledger_busy_returns_clean_error(actuator, capsys, monkeypatch):
+    def busy():
+        raise TimeoutError("nope")
+
+    monkeypatch.setattr(actuator, "frozen", busy)
+    assert cli.main(["list"]) == 1
+    assert "ledger busy" in capsys.readouterr().err
+
+
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only process discovery")
 def test_find_pids_by_exe_finds_self():
     from freezer.actuator import WindowsOs

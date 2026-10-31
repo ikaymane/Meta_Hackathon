@@ -104,3 +104,28 @@ def test_frozen_apps_are_not_candidates():
 @pytest.mark.skipif(os.name != "nt", reason="Windows-only RAM reading")
 def test_windows_ram_reading_is_sane():
     assert 0.0 <= windows_ram_pct() <= 100.0
+
+
+def test_ram_failure_is_not_pressure():
+    def boom():
+        raise OSError("sensor down")
+
+    g = Guardian(ram_pct=boom, clock=Clock())
+    assert g.poll(SNAPS) is None
+
+
+def test_run_delivers_event_and_stops():
+    from freezer.guardian import run
+
+    clock = Clock()
+    g = Guardian(ram_pct=Ram(91.0), clock=clock)
+    seen = []
+    ticks = iter([0, 30])
+
+    def snapshots():
+        clock.now = next(ticks)
+        return SNAPS
+
+    run(g, snapshots, seen.append, interval_s=0.01,
+        stop=lambda: len(seen) >= 1 or clock.now >= 30)
+    assert len(seen) == 1 and seen[0].candidates[0] == "b.exe"
