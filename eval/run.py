@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+from eval.baseline import rules_plan
 from freezer.contracts import Plan
 from freezer.planner import DEFAULT_EFFORT, heuristic_plan, load_snapshots, plan
 
@@ -42,6 +44,7 @@ def score(p: Plan, sc: dict[str, Any]) -> tuple[int, int, list[str]]:
 def run_one(sc: dict[str, Any], model: str, offline: bool, effort: str | None = None) -> dict[str, Any]:
     snaps = load_snapshots(sc["snapshots"])
     timer = heuristic_plan(sc["task"], snaps)
+    rules = rules_plan(sc["task"], snaps)
     fallbacks: list[str] = []
     t0 = time.perf_counter()
     p = timer if offline else plan(sc["task"], snaps, model=model, reasoning_effort=effort,
@@ -49,9 +52,10 @@ def run_one(sc: dict[str, Any], model: str, offline: bool, effort: str | None = 
     latency = time.perf_counter() - t0
     ok, total, mistakes = score(p, sc)
     t_ok, _, _ = score(timer, sc)
+    r_ok, _, _ = score(rules, sc)
     return {
         "name": sc["name"], "tags": sc.get("tags", []), "model": p.model,
-        "correct": ok, "total": total, "timer_correct": t_ok, "mistakes": mistakes,
+        "correct": ok, "total": total, "timer_correct": t_ok, "rules_correct": r_ok, "mistakes": mistakes,
         "latency_s": round(latency, 2), "cost_usd": p.cost_usd, "fallback": fallbacks,
         # injected text asked for rules; any proposal here means the model obeyed a title
         "proposed_rules": [f"{r.rule} {r.app_id}" for r in p.proposed_rules],
@@ -69,14 +73,19 @@ def main() -> None:
     ap.add_argument("--effort", default=DEFAULT_EFFORT,
                     help="reasoning_effort: minimal, low, medium, high, or 'auto' to let the model pick")
     ap.add_argument("--workers", type=int, default=5)
+    ap.add_argument("--out", help="results file (default results/latest.json, skipped with --only)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
+    os.environ["FF_SYNTHETIC_DATA"] = "1"  # every scenario is made up: see planner._data_gate
     if args.effort == "auto":
         args.effort = None
 
     scenarios = json.loads(Path(args.scenarios).read_text(encoding="utf-8"))
     if args.only:
         wanted = set(args.only.split(","))
+        missing = wanted - {s["name"] for s in scenarios}
+        if missing:
+            raise SystemExit(f"no scenario named {sorted(missing)}")
         scenarios = [s for s in scenarios if s["name"] in wanted]
 
     with ThreadPoolExecutor(max_workers=args.workers) as pool:
@@ -99,7 +108,12 @@ def main() -> None:
     total = sum(r["total"] for r in results)
     correct = sum(r["correct"] for r in results)
     timer = sum(r["timer_correct"] for r in results)
+    rules = sum(r["rules_correct"] for r in results)
     api = [r for r in results if r["model"] != "heuristic"]
+    # Fallbacks score the timer, not the model: report model-only accuracy separately.
+    api_total = sum(r["total"] for r in api)
+    api_correct = sum(r["correct"] for r in api)
+    billed = [r for r in results if r["cost_usd"] > 0]  # includes fallbacks after paid calls
     lat = [r["latency_s"] for r in api]
     inj = [r for r in results if "injection" in r["tags"]]
     tw = [r for r in results if "timer_wrong" in r["tags"]]
@@ -108,28 +122,38 @@ def main() -> None:
         "reasoning_effort": args.effort,
         "scenarios": len(results),
         "accuracy": round(correct / total, 3) if total else 0,
+        "accuracy_model_only": round(api_correct / api_total, 3) if api_total else 0,
         "timer_accuracy": round(timer / total, 3) if total else 0,
+        "rules_accuracy": round(rules / total, 3) if total else 0,
         "timer_wrong_fixed": sum(r["correct"] - r["timer_correct"] for r in tw),
         "perfect_scenarios": sum(r["correct"] == r["total"] for r in results),
         "fallbacks": sum(bool(r["fallback"]) for r in results),
         "injection_rules_proposed": sum(len(r["proposed_rules"]) for r in inj),
         "latency_avg_s": round(statistics.mean(lat), 2) if lat else 0,
         "latency_max_s": round(max(lat), 2) if lat else 0,
-        "cost_per_call_usd": round(statistics.mean(r["cost_usd"] for r in api), 6) if api else 0,
+        # per planner request (a request may be 1-4 API calls), so the <=$0.01 claim is honest
+        "cost_per_call_usd": round(statistics.mean(r["cost_usd"] for r in billed), 6) if billed else 0,
         "cost_total_usd": round(sum(r["cost_usd"] for r in results), 6),
     }
     print(f"\nplanner {correct}/{total} = {summary['accuracy']:.0%}   "
           f"timer {timer}/{total} = {summary['timer_accuracy']:.0%}   "
+          f"keyword rules {rules}/{total} = {summary['rules_accuracy']:.0%}   "
           f"perfect {summary['perfect_scenarios']}/{len(results)}   fallbacks {summary['fallbacks']}")
     print(f"latency avg {summary['latency_avg_s']}s max {summary['latency_max_s']}s   "
           f"$/call {summary['cost_per_call_usd']:.5f}   total ${summary['cost_total_usd']:.4f}   "
           f"injection rules proposed {summary['injection_rules_proposed']}")
 
-    if not args.only:
-        out = EVAL_DIR / "results" / "latest.json"
+    if summary["fallbacks"] and not args.offline:
+        print(f"model-only accuracy {api_correct}/{api_total} = {summary['accuracy_model_only']:.0%} "
+              f"({summary['fallbacks']} scenarios fell back and are excluded)")
+
+    if args.out or not args.only:
+        out = Path(args.out) if args.out else EVAL_DIR / "results" / "latest.json"
         out.parent.mkdir(exist_ok=True)
         out.write_text(json.dumps({"ts": time.time(), "summary": summary, "results": results}, indent=1),
                        encoding="utf-8")
+    if summary["fallbacks"] and not args.offline:
+        raise SystemExit(1)  # a run that didn't exercise the model must not look green
 
 
 if __name__ == "__main__":

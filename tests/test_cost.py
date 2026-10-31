@@ -39,3 +39,49 @@ def test_torn_log_line_is_ignored(isolated_home):
     with (isolated_home / "usage.jsonl").open("a") as f:
         f.write('{"cost_usd": 0.5')  # crash mid-write
     assert cost.total_spent() == pytest.approx(cost.call_cost("muse-spark-1.3", 1000, 100))
+
+
+def test_default_cap_and_bad_cap_value(monkeypatch):
+    assert cost.cap_usd() == cost.DEFAULT_CAP_USD == 20.0
+    monkeypatch.setenv("FF_COST_CAP_USD", "twenty")
+    assert cost.cap_usd() == 20.0  # warns instead of crashing the planner
+
+
+def test_cap_is_inclusive(monkeypatch):
+    spent = cost.record("muse-spark-1.3", 1000, 0, 0, 0.1)
+    monkeypatch.setenv("FF_COST_CAP_USD", str(spent))
+    assert cost.over_cap()
+
+
+def test_unknown_model_is_priced_high():
+    assert cost.call_cost("muse-spark-9", 1000, 1000) == cost.call_cost("muse-spark-1.3", 1000, 1000)
+
+
+def test_unreadable_log_counts_as_over_cap(isolated_home):
+    isolated_home.mkdir(parents=True)
+    (isolated_home / "usage.jsonl").mkdir()  # exists but can't be read as a file
+    assert cost.over_cap()
+
+
+def test_unwritable_log_fails_closed(monkeypatch, isolated_home):
+    isolated_home.mkdir(parents=True)
+    (isolated_home / "blocker").write_text("")  # a file where the log's folder should be
+    monkeypatch.setattr(cost, "usage_path", lambda: isolated_home / "blocker" / "usage.jsonl")
+    task, snaps = scenario("login_bug")
+    client = FakeClient(reply(call("freeze_apps", all_decisions(snaps))), reply(call("freeze_apps", all_decisions(snaps), 1)))
+    planner.plan(task, snaps, client=client)          # this call can't be logged...
+    assert not cost.usage_log_ok()
+    p = planner.plan(task, snaps, client=client)      # ...so the next one never reaches the API
+    assert p.model == "heuristic" and "usage log" in p.fallback_reason and len(client.requests) == 1
+
+
+def test_log_recovers_after_a_passing_lock(monkeypatch, isolated_home):
+    isolated_home.mkdir(parents=True)
+    blocker = isolated_home / "blocker"
+    blocker.write_text("")  # a file where the log's folder should be: writes fail
+    monkeypatch.setattr(cost, "usage_path", lambda: blocker / "usage.jsonl")
+    spent = cost.record("muse-spark-1.3", 1000, 100, 0, 1.0)
+    assert not cost.usage_log_ok() and cost.total_spent() == pytest.approx(spent)  # still counted
+    blocker.unlink()  # the lock goes away
+    assert cost.usage_log_ok()
+    assert len((blocker / "usage.jsonl").read_text().splitlines()) == 1 and cost._pending == []

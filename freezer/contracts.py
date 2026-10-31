@@ -57,6 +57,8 @@ class Plan:
     cost_usd: float = 0.0
     question: str | None = None  # set when the model asks the user instead of deciding
     proposed_rules: list[RuleProposal] = field(default_factory=list)
+    fallback_reason: str | None = None  # set when model == "heuristic" because the AI failed;
+                                        # the consent card must say so (e.g. spend cap hit)
 
 
 # ---- Policy (owner: B) -----------------------------------------------------
