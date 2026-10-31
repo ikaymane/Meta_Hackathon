@@ -5,7 +5,7 @@ Safety properties (A owns the "never leave apps frozen" invariant):
 - Locked: a thread lock for threads plus a lockfile for processes, so the
   consent card and the pressure guardian can use the ledger at the same time.
 - Signed: HMAC-SHA256 over the entries, key in DPAPI (T3). A bad HMAC puts the
-  ledger in read-only mode: new freezes are refused, but thawing still works
+  ledger in read-only mode: new freezes are refused, but thaw_all still works
   because thawing is always safe. Entries with a live PID whose create time no
   longer matches are NEVER dropped (PID reuse guard); only confirmed-dead PIDs
   are pruned, and only on the thaw path.
@@ -60,10 +60,10 @@ def key_path() -> Path:
 # ---- cross-process file lock -------------------------------------------------
 
 @contextlib.contextmanager
-def _file_lock(timeout_s: float = LOCK_TIMEOUT_S) -> Iterator[None]:
-    """Hold an exclusive lock on the ledger lockfile (cross-process)."""
+def _file_lock(path: Path | None = None, timeout_s: float = LOCK_TIMEOUT_S) -> Iterator[None]:
+    """Hold an exclusive lock on a lockfile (cross-process)."""
     home().mkdir(parents=True, exist_ok=True)
-    p = lock_path()
+    p = path or lock_path()
     fd = os.open(p, os.O_RDWR | os.O_CREAT, 0o600)
     try:
         if os.fstat(fd).st_size == 0:
@@ -119,7 +119,31 @@ def _file_lock(timeout_s: float = LOCK_TIMEOUT_S) -> Iterator[None]:
 def locked(timeout_s: float = LOCK_TIMEOUT_S) -> Iterator[None]:
     """Hold the ledger lock against both threads and other processes."""
     with _threads:
-        with _file_lock(timeout_s):
+        with _file_lock(None, timeout_s):
+            yield
+
+
+def fmutex_path() -> Path:
+    return home() / "ledger.fmutex"
+
+
+_FTHREADS = threading.RLock()
+
+
+@contextlib.contextmanager
+def freeze_locked(timeout_s: float = 60.0) -> Iterator[None]:
+    """Serialize whole freeze/thaw operations across threads and processes.
+
+    The per-op `locked()` guard is too short on its own: freeze adds the
+    entry, releases the lock, then suspends, so a concurrent thaw_all could
+    resume + remove in between and strand a suspend with no ledger record
+    (and two concurrent freezers could double-suspend one app). Holding this
+    mutex across the entire freeze — and the entire thaw/thaw_all — closes
+    both races. Reads (frozen()/list) deliberately do NOT take it, so the UI
+    stays snappy while a big app freezes.
+    """
+    with _FTHREADS:
+        with _file_lock(fmutex_path(), timeout_s):
             yield
 
 
@@ -211,31 +235,43 @@ def _encode(entries: dict[str, LedgerEntry]) -> bytes:
     return json.dumps({**body, "hmac": tag}, indent=1).encode("utf-8")
 
 
+def _parse_entries(doc: dict) -> dict[str, LedgerEntry]:
+    raw_entries = doc.get("entries", [])
+    if not isinstance(raw_entries, list):
+        raise TypeError("entries is not a list")
+    out: dict[str, LedgerEntry] = {}
+    for e in raw_entries:
+        procs = [ProcRef(**p) for p in e["procs"]]
+        out[e["app_id"]] = LedgerEntry(
+            e["app_id"], procs, e["frozen_at"], e["freed_mb"], e["session"])
+    return out
+
+
 def _decode(data: bytes) -> tuple[dict[str, LedgerEntry], bool]:
-    """Return (entries, ok). ok=False means the HMAC did not verify."""
+    """Return (entries, ok). ok=False means: enter tamper (read-only) mode.
+
+    Any wrong shape — non-dict JSON, non-string hmac, non-list entries —
+    lands in tamper mode too: a ledger we cannot parse must never be
+    silently treated as empty while apps may be frozen.
+    """
     try:
         doc = json.loads(data.decode("utf-8"))
-        tag = doc.pop("hmac")
-        raw = json.dumps(doc, sort_keys=True).encode("utf-8")
-    except (ValueError, KeyError, AttributeError):
+        if not isinstance(doc, dict):
+            return {}, False
+        tag = doc.get("hmac")
+        if not isinstance(tag, str):
+            return {}, False
+        body = {k: v for k, v in doc.items() if k != "hmac"}
+        raw = json.dumps(body, sort_keys=True).encode("utf-8")
+        if not hmac.compare_digest(tag, hmac.new(load_key(), raw, hashlib.sha256).hexdigest()):
+            log.error("ledger_tampered: HMAC mismatch on %s", ledger_path())
+            try:
+                return _parse_entries(doc), False
+            except (KeyError, TypeError):
+                return {}, False
+        return _parse_entries(doc), True
+    except (ValueError, KeyError, TypeError, AttributeError):
         return {}, False
-    if not hmac.compare_digest(tag, hmac.new(load_key(), raw, hashlib.sha256).hexdigest()):
-        log.error("ledger_tampered: HMAC mismatch on %s", ledger_path())
-        entries: dict[str, LedgerEntry] = {}
-        try:
-            for e in doc.get("entries", []):
-                entries[e["app_id"]] = LedgerEntry(
-                    e["app_id"], [ProcRef(**p) for p in e["procs"]],
-                    e["frozen_at"], e["freed_mb"], e["session"])
-        except (KeyError, TypeError):
-            pass
-        return entries, False
-    out: dict[str, LedgerEntry] = {}
-    for e in doc.get("entries", []):
-        out[e["app_id"]] = LedgerEntry(
-            e["app_id"], [ProcRef(**p) for p in e["procs"]],
-            e["frozen_at"], e["freed_mb"], e["session"])
-    return out, True
 
 
 # ---- the ledger ------------------------------------------------------------------
@@ -251,19 +287,36 @@ class Ledger:
     def tampered(self) -> bool:
         return self._tampered
 
+    def _backup_path(self) -> Path:
+        return self._path.with_name(self._path.name + ".bak")
+
     def _read_unlocked(self) -> dict[str, LedgerEntry]:
-        if not self._path.exists():
-            return {}
-        entries, ok = _decode(self._path.read_bytes())
-        if not ok:
-            self._tampered = True
+        if self._path.exists():
+            entries, ok = _decode(self._path.read_bytes())
+            if not ok:
+                self._tampered = True
+            return entries
+        bak = self._backup_path()
+        if not bak.exists():
+            return {}  # first run: nothing frozen, nothing deleted
+        # The primary is gone but a backup exists: deleting the ledger would
+        # otherwise strand frozen apps and bypass tamper mode for new freezes.
+        # Deleting BOTH files is still a residual risk (documented): nothing
+        # can distinguish that from a first run.
+        log.error("ledger_deleted: %s missing, fell back to backup", self._path)
+        entries, _ = _decode(bak.read_bytes())
+        self._tampered = True  # deletion itself is tamper evidence: read-only
         return entries
 
     def _write_unlocked(self, entries: dict[str, LedgerEntry]) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self._path.with_suffix(".tmp")
-        tmp.write_bytes(_encode(entries))
+        data = _encode(entries)
+        tmp = self._path.with_name(self._path.name + ".tmp")
+        tmp.write_bytes(data)
         os.replace(tmp, self._path)
+        btmp = self._path.with_name(self._path.name + ".bak.tmp")
+        btmp.write_bytes(data)
+        os.replace(btmp, self._backup_path())
 
     def load(self) -> dict[str, LedgerEntry]:
         """Read all entries. Works in read-only (tampered) mode too."""
@@ -288,6 +341,23 @@ class Ledger:
             entries[entry.app_id] = entry
         self._mutate(fn)
 
+    def add_if_absent(self, entry: LedgerEntry) -> LedgerEntry | None:
+        """Add under a single lock; return the existing entry if one is present.
+
+        This closes the check-then-add race: two concurrent freezers of one
+        app cannot both pass and double-suspend it.
+        """
+        result: dict[str, LedgerEntry] = {}
+
+        def fn(entries: dict[str, LedgerEntry]) -> None:
+            if entry.app_id in entries:
+                result["existing"] = entries[entry.app_id]
+            else:
+                entries[entry.app_id] = entry
+
+        self._mutate(fn)
+        return result.get("existing")
+
     def update(self, entry: LedgerEntry) -> None:
         def fn(entries: dict[str, LedgerEntry]) -> None:
             entries[entry.app_id] = entry
@@ -306,6 +376,3 @@ class Ledger:
         self._mutate(lambda cur: (cur.clear(), cur.update(entries)), thaw_path=True)
         if was_tampered:
             log.warning("ledger_tampered: thaw rewrote the ledger, clearing tamper flag")
-
-    def clear(self) -> None:
-        self.save_thawed({})

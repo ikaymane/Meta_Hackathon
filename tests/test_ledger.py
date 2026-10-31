@@ -33,7 +33,8 @@ def test_round_trip_preserves_entries():
 def test_write_is_atomic_and_leaves_no_tmp():
     Ledger().add(entry("a.exe"))
     assert ledger.ledger_path().exists()
-    assert not ledger.ledger_path().with_suffix(".tmp").exists()
+    d = ledger.ledger_path().parent
+    assert list(d.glob("*.tmp")) == []
 
 
 def test_update_and_remove():
@@ -81,6 +82,51 @@ def test_garbage_ledger_counts_as_tampered():
     ledger.ledger_path().write_text("{not json", encoding="utf-8")
     assert lg.load() == {}
     assert lg.tampered
+
+
+@pytest.mark.parametrize("body", [
+    [1, 2, 3],            # non-dict JSON
+    "just a string",      # non-dict JSON
+    {"v": 1, "entries": [], "hmac": 123},      # non-string hmac
+    {"v": 1, "entries": {"a": 1}, "hmac": "x"},  # non-list entries
+    {"v": 1, "entries": ["oops"], "hmac": "x"},  # non-dict entry
+    {"v": 2, "entries": [], "hmac": "x"},        # unknown version shape
+])
+def test_wrong_shape_ledger_counts_as_tampered(body):
+    lg = Ledger()
+    ledger.ledger_path().parent.mkdir(parents=True, exist_ok=True)
+    ledger.ledger_path().write_text(json.dumps(body), encoding="utf-8")
+    assert lg.load() == {}
+    assert lg.tampered
+    with pytest.raises(LedgerTampered):
+        lg.add(entry("b.exe"))
+
+
+def test_deleted_ledger_falls_back_to_backup_and_stays_read_only():
+    lg = Ledger()
+    lg.add(entry("a.exe"))
+    assert lg._backup_path().exists()
+    ledger.ledger_path().unlink()  # primary deleted: strands nothing, bypasses nothing
+
+    lg2 = Ledger()
+    back = lg2.load()
+    assert lg2.tampered
+    assert set(back) == {"a.exe"}
+    with pytest.raises(LedgerTampered):
+        lg2.add(entry("b.exe"))
+    lg2.save_thawed({})  # thaw path still allowed, re-signs clean
+    assert not lg2.tampered
+
+
+def test_add_if_absent_returns_existing_without_overwriting():
+    lg = Ledger()
+    assert lg.add_if_absent(entry("a.exe")) is None
+    first = lg.load()["a.exe"]
+    dup = entry("a.exe")
+    dup.freed_mb = 1.0
+    existing = lg.add_if_absent(dup)
+    assert existing is not None and existing.freed_mb == first.freed_mb
+    assert lg.load()["a.exe"].freed_mb == first.freed_mb
 
 
 def test_concurrent_thread_writes_lose_nothing():
