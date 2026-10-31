@@ -206,7 +206,8 @@ class WindowsOs:
             self._close(h)
 
     def trim(self, pid: int) -> None:
-        h = self._open(pid, self.PROCESS_SET_QUOTA)
+        # EmptyWorkingSet needs QUERY rights next to SET_QUOTA (else error 5).
+        h = self._open(pid, self.PROCESS_SET_QUOTA | self.PROCESS_QUERY_LIMITED_INFORMATION)
         try:
             if not self._psapi.EmptyWorkingSet(h):
                 raise self._ctypes.WinError(self._ctypes.get_last_error())
