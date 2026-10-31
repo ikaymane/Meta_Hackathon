@@ -14,6 +14,7 @@ Invariants:
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Protocol
 
@@ -47,9 +48,16 @@ class Proposal:
 
 
 @dataclass
+class FreezeFailure:
+    app_id: str
+    error: str  # human-readable; shown on the card / in logs
+
+
+@dataclass
 class Outcome:
     proposal: Proposal | None = None
     frozen: list[LedgerEntry] = field(default_factory=list)
+    failed: list[FreezeFailure] = field(default_factory=list)
     question: str | None = None
     declined: bool = False
 
@@ -61,10 +69,15 @@ Consent = Callable[[Proposal], "list[str] | None"]
 class FocusAgent:
     def __init__(self, sensor: Sensor, policy: Policy, actuator: Actuator, consent: Consent, *,
                  model: str = DEFAULT_MODEL, client: Any = None,
-                 on_fallback: Callable[[str], None] | None = None):
+                 on_fallback: Callable[[str], None] | None = None,
+                 max_freezes_per_min: int = 10,
+                 clock: Callable[[], float] | None = None):
         self.sensor, self.policy, self.actuator, self.consent = sensor, policy, actuator, consent
         self.model, self.client, self.on_fallback = model, client, on_fallback
         self.session_name: str | None = None
+        self.max_freezes_per_min = max_freezes_per_min  # T6: freeze storm guard
+        self._clock = clock or time.monotonic
+        self._freeze_times: list[float] = []
 
     # ---- proposal ----------------------------------------------------------
 
@@ -98,9 +111,31 @@ class FocusAgent:
                 if app_id not in approved_set:  # user unticked it: remember for next time
                     sessions.add_rule(proposal.session, app_id, "keep")
         by_id = {s.app_id: s for s in snaps}
-        frozen = [self.actuator.freeze(by_id[a], proposal.session or "")
-                  for a in allowed if a in approved_set]
-        return Outcome(proposal=proposal, frozen=frozen)
+        frozen_ids = {e.app_id for e in self.actuator.frozen()}  # re-check just before freezing
+        frozen: list[LedgerEntry] = []
+        failed: list[FreezeFailure] = []
+        for app_id in allowed:
+            if app_id not in approved_set:
+                continue
+            snap = by_id.get(app_id)
+            if snap is None:
+                failed.append(FreezeFailure(app_id, "not in snapshot"))
+                continue
+            if app_id in frozen_ids:
+                failed.append(FreezeFailure(app_id, "already frozen"))
+                continue
+            now = self._clock()
+            self._freeze_times = [t for t in self._freeze_times if now - t < 60.0]
+            if len(self._freeze_times) >= self.max_freezes_per_min:
+                failed.append(FreezeFailure(app_id, "rate limited: too many freezes this minute"))
+                continue
+            self._freeze_times.append(now)
+            try:
+                frozen.append(self.actuator.freeze(snap, proposal.session or ""))
+                frozen_ids.add(app_id)
+            except Exception as e:  # noqa: BLE001 - one bad app must not stop the rest
+                failed.append(FreezeFailure(app_id, f"{type(e).__name__}: {e}"))
+        return Outcome(proposal=proposal, frozen=frozen, failed=failed)
 
     # ---- entry points ------------------------------------------------------
 
